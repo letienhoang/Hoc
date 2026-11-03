@@ -2,13 +2,16 @@ using System.Collections.Generic;
 using System.Globalization;
 using Localization.Resources.AbpUi;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Hoc.EntityFrameworkCore;
 using Hoc.Localization;
 using Hoc.Web;
 using Hoc.Web.Menus;
+using Hoc.Authentication;
 using Volo.Abp.AspNetCore.TestBase;
 using Volo.Abp.Localization;
 using Volo.Abp.Modularity;
@@ -31,6 +34,7 @@ public class HocWebTestModule : AbpModule
         context.Services.PreConfigure<IMvcBuilder>(builder =>
         {
             builder.PartManager.ApplicationParts.Add(new CompiledRazorAssemblyPart(typeof(HocWebModule).Assembly));
+            builder.PartManager.ApplicationParts.Add(new AssemblyPart(typeof(AuthenticationProbeController).Assembly));
         });
 
         context.Services.GetPreConfigureActions<OpenIddictServerBuilder>().Clear();
@@ -42,6 +46,8 @@ public class HocWebTestModule : AbpModule
 
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
+        context.Services.Replace(ServiceDescriptor.Transient<IAuthorizationService, DefaultAuthorizationService>());
+
         ConfigureLocalizationServices(context.Services);
         ConfigureNavigationServices(context.Services);
     }
