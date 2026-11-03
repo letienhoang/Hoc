@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Hoc.Identity;
@@ -25,9 +26,15 @@ namespace Hoc.Authorization;
 public class RolePermissionTests : RolePermissionWebTestBase
 {
     private const string AdministrativeIdentityUsersUrl = "/api/identity/users";
+    private const string AdministrativeIdentityRoleAssignmentsUrl = "/api/identity/users/{0}/roles";
+    private const string PermissionManagementUrl = "/api/permission-management/permissions";
     private const string ReaderUserName = "reader-permission-test";
     private const string ReaderEmail = "reader-permission-test@hoc.test";
     private const string ReaderPassword = "Reader-permission-test-1!";
+    private const string UnauthorizedCreatedUserName = "reader-unauthorized-create";
+    private const string UnauthorizedCreatedUserEmail = "reader-unauthorized-create@hoc.test";
+    private const string RoleTargetUserName = "reader-role-target";
+    private const string RoleTargetUserEmail = "reader-role-target@hoc.test";
     private const string RolePermissionProviderName = "R";
     private readonly ITestOutputHelper _output;
 
@@ -112,19 +119,11 @@ public class RolePermissionTests : RolePermissionWebTestBase
     [Fact]
     public async Task Authenticated_Reader_should_be_denied_from_administrative_identity_users_endpoint()
     {
-        await CreateReaderUserAsync();
-        var loginResponse = await PostLoginAsync(ReaderUserName, ReaderPassword);
-        loginResponse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
-        loginResponse.Headers.Location.ShouldNotBeNull();
-        loginResponse.Headers.Location!.OriginalString.ShouldBe(AdministrativeIdentityUsersUrl);
+        await CreateAndLoginReaderAsync();
 
         var response = await Client.GetAsync(AdministrativeIdentityUsersUrl);
 
-        var isPermissionDenied = response.StatusCode == HttpStatusCode.Forbidden ||
-            (response.StatusCode == HttpStatusCode.Redirect &&
-             response.Headers.Location?.AbsolutePath == "/Account/AccessDenied");
-
-        isPermissionDenied.ShouldBeTrue();
+        await AssertPermissionDeniedAsync(response);
         await AssertResponseDoesNotContainUserListAsync(response);
         _output.WriteLine($"Reader {AdministrativeIdentityUsersUrl}: {(int)response.StatusCode} {response.StatusCode}");
     }
@@ -143,27 +142,108 @@ public class RolePermissionTests : RolePermissionWebTestBase
         _output.WriteLine($"Admin {AdministrativeIdentityUsersUrl}: {(int)response.StatusCode} {response.StatusCode}");
     }
 
+    [Fact]
+    public async Task Authenticated_Reader_cannot_create_an_Identity_user_and_the_user_is_not_persisted()
+    {
+        var antiForgeryToken = await CreateAndLoginReaderAsync();
+        using var request = CreateJsonRequest(
+            HttpMethod.Post,
+            AdministrativeIdentityUsersUrl,
+            new
+            {
+                userName = UnauthorizedCreatedUserName,
+                email = UnauthorizedCreatedUserEmail,
+                password = "Reader-unauthorized-create-1!",
+                isActive = true
+            },
+            antiForgeryToken);
+
+        var response = await Client.SendAsync(request);
+
+        await AssertPermissionDeniedAsync(response);
+        var identityUserRepository = GetRequiredService<IIdentityUserRepository>();
+        (await identityUserRepository.FindByNormalizedUserNameAsync(
+            UnauthorizedCreatedUserName.ToUpperInvariant())).ShouldBeNull();
+        _output.WriteLine($"Reader POST {AdministrativeIdentityUsersUrl}: {(int)response.StatusCode} {response.StatusCode}");
+    }
+
+    [Fact]
+    public async Task Authenticated_Reader_cannot_assign_an_administrative_role_to_another_user()
+    {
+        var targetUser = await CreateUserAsync(RoleTargetUserName, RoleTargetUserEmail);
+        var antiForgeryToken = await CreateAndLoginReaderAsync();
+        using var request = CreateJsonRequest(
+            HttpMethod.Put,
+            string.Format(AdministrativeIdentityRoleAssignmentsUrl, targetUser.Id),
+            new { roleNames = new[] { "admin" } },
+            antiForgeryToken);
+
+        var response = await Client.SendAsync(request);
+
+        await AssertPermissionDeniedAsync(response);
+        var userManager = GetRequiredService<IdentityUserManager>();
+        (await userManager.GetRolesAsync(targetUser)).ShouldBeEmpty();
+        _output.WriteLine($"Reader PUT role assignment: {(int)response.StatusCode} {response.StatusCode}");
+    }
+
+    [Fact]
+    public async Task Authenticated_Reader_cannot_access_permission_management_operations()
+    {
+        await CreateAndLoginReaderAsync();
+        var response = await Client.GetAsync(
+            $"{PermissionManagementUrl}?providerName={RolePermissionProviderName}&providerKey={HocRoleNames.Reader}");
+
+        await AssertPermissionDeniedAsync(response);
+        _output.WriteLine($"Reader GET {PermissionManagementUrl}: {(int)response.StatusCode} {response.StatusCode}");
+    }
+
     private async Task CreateReaderUserAsync()
+    {
+        await CreateUserAsync(ReaderUserName, ReaderEmail, HocRoleNames.Reader);
+    }
+
+    private async Task<IdentityUser> CreateUserAsync(string userName, string email, params string[] roleNames)
     {
         var unitOfWorkManager = GetRequiredService<IUnitOfWorkManager>();
         using (var unitOfWork = unitOfWorkManager.Begin())
         {
             var userManager = GetRequiredService<IdentityUserManager>();
             var guidGenerator = GetRequiredService<IGuidGenerator>();
-            var reader = new IdentityUser(
+            var user = new IdentityUser(
                 guidGenerator.Create(),
-                ReaderUserName,
-                ReaderEmail);
+                userName,
+                email);
 
-            (await userManager.CreateAsync(reader, ReaderPassword)).Succeeded.ShouldBeTrue();
-            (await userManager.AddToRoleAsync(reader, HocRoleNames.Reader)).Succeeded.ShouldBeTrue();
+            (await userManager.CreateAsync(user, ReaderPassword)).Succeeded.ShouldBeTrue();
+            foreach (var roleName in roleNames)
+            {
+                (await userManager.AddToRoleAsync(user, roleName)).Succeeded.ShouldBeTrue();
+            }
+
             await unitOfWork.CompleteAsync();
+            return user;
         }
     }
 
-    private async Task<HttpResponseMessage> PostLoginAsync(string userName, string password)
+    private async Task<string> CreateAndLoginReaderAsync()
     {
-        var antiForgeryToken = await GetAntiForgeryTokenAsync($"/Account/Login?ReturnUrl={Uri.EscapeDataString(AdministrativeIdentityUsersUrl)}");
+        await CreateReaderUserAsync();
+        var antiForgeryToken = await GetAntiForgeryTokenAsync(
+            $"/Account/Login?ReturnUrl={Uri.EscapeDataString(AdministrativeIdentityUsersUrl)}");
+        var loginResponse = await PostLoginAsync(ReaderUserName, ReaderPassword, antiForgeryToken);
+        loginResponse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        loginResponse.Headers.Location.ShouldNotBeNull();
+        loginResponse.Headers.Location!.OriginalString.ShouldBe(AdministrativeIdentityUsersUrl);
+        return await GetAntiForgeryTokenAsync("/Account/Register");
+    }
+
+    private async Task<HttpResponseMessage> PostLoginAsync(
+        string userName,
+        string password,
+        string? antiForgeryToken = null)
+    {
+        antiForgeryToken ??= await GetAntiForgeryTokenAsync(
+            $"/Account/Login?ReturnUrl={Uri.EscapeDataString(AdministrativeIdentityUsersUrl)}");
         var content = new FormUrlEncodedContent(new[]
         {
             new System.Collections.Generic.KeyValuePair<string, string>("__RequestVerificationToken", antiForgeryToken),
@@ -175,6 +255,20 @@ public class RolePermissionTests : RolePermissionWebTestBase
         });
 
         return await Client.PostAsync("/Account/Login", content);
+    }
+
+    private static HttpRequestMessage CreateJsonRequest(
+        HttpMethod method,
+        string requestUri,
+        object content,
+        string antiForgeryToken)
+    {
+        var request = new HttpRequestMessage(method, requestUri)
+        {
+            Content = JsonContent.Create(content)
+        };
+        request.Headers.Add("RequestVerificationToken", antiForgeryToken);
+        return request;
     }
 
     private async Task<string> GetAntiForgeryTokenAsync(string url)
@@ -197,6 +291,30 @@ public class RolePermissionTests : RolePermissionWebTestBase
         var body = await response.Content.ReadAsStringAsync();
 
         body.Contains("\"items\"", StringComparison.OrdinalIgnoreCase).ShouldBeFalse();
+    }
+
+    private async Task AssertPermissionDeniedAsync(HttpResponseMessage response)
+    {
+        var isPermissionDenied = response.StatusCode == HttpStatusCode.Forbidden ||
+            (response.StatusCode == HttpStatusCode.Redirect &&
+             IsAccessDeniedRedirect(response.Headers.Location));
+
+        isPermissionDenied.ShouldBeTrue();
+        (await response.Content.ReadAsStringAsync()).ShouldNotContain("validationErrors");
+    }
+
+    private static bool IsAccessDeniedRedirect(Uri? location)
+    {
+        if (location is null)
+        {
+            return false;
+        }
+
+        var path = location.IsAbsoluteUri
+            ? location.AbsolutePath
+            : location.OriginalString.Split('?', 2)[0];
+
+        return path == "/Account/AccessDenied";
     }
 
     private static async Task AssertValidUserListResponseAsync(HttpResponseMessage response)
