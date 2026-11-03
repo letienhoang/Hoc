@@ -1,0 +1,35 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Hoc.Application.Contracts/Hoc.Application.Contracts.csproj" />
+    <Project Path="src/Hoc.Application/Hoc.Application.csproj" />
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    <Project Path="src/Hoc.DbMigrator/Hoc.DbMigrator.csproj" />
+    <Project Path="src/Hoc.Domain.Shared/Hoc.Domain.Shared.csproj" />
+    <Project Path="src/Hoc.Domain/Hoc.Domain.csproj" />
+    <Project Path="src/Hoc.EntityFrameworkCore/Hoc.EntityFrameworkCore.csproj" />
+    <Project Path="src/Hoc.HttpApi.Client/Hoc.HttpApi.Client.csproj" />
+    
+    
+    <Project Path="src/Hoc.HttpApi/Hoc.HttpApi.csproj" />
+    
+    
+    <Project Path="src/Hoc.Web/Hoc.Web.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/Hoc.Application.Tests/Hoc.Application.Tests.csproj" />
+    <Project Path="test/Hoc.Domain.Tests/Hoc.Domain.Tests.csproj" />
+    <Project Path="test/Hoc.EntityFrameworkCore.Tests/Hoc.EntityFrameworkCore.Tests.csproj" />
+    <Project Path="test/Hoc.HttpApi.Client.ConsoleTestApp/Hoc.HttpApi.Client.ConsoleTestApp.csproj" />
+    
+    <Project Path="test/Hoc.TestBase/Hoc.TestBase.csproj" />
+    <Project Path="test/Hoc.Web.Tests/Hoc.Web.Tests.csproj" />
+  </Folder>
+</Solution>

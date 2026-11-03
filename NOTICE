@@ -1,0 +1,24 @@
+Học
+
+Apache-2.0 in LICENSE applies only to Học-authored material for which the
+copyright holder has authority to grant it. Copyright ownership and the final
+Apache-2.0 scope still require Owner attestation. Nothing in LICENSE or this
+NOTICE relicenses third-party, generated, or template-derived material.
+
+This source tree contains ABP 10.7.0 template-derived source and assets.
+ABP Framework package metadata identifies LGPL-3.0-only. Preserve the ABP and
+Volosoft attribution, the LGPL-3.0-only provenance, the applicable upstream
+license text, and the source/provenance pointer when distributing that material.
+The authoritative upstream reference recorded for this checkout is
+https://github.com/abpframework/abp/tree/10.7.0 (commit
+c68e856d06615c6bd512b0649c10a4dc45af33e6).
+
+LeptonX Lite is referenced as an external NuGet dependency only. This source
+tree does not grant, assert, or imply any right to redistribute its NuGet DLLs,
+embedded resources, or restored client assets. Its MVC/Razor 5.7.0 terms remain
+subject to the upstream clarification recorded in THIRD-PARTY-NOTICES.md.
+
+Third-party components, evidence sources, and outstanding distribution gates
+are recorded in THIRD-PARTY-NOTICES.md. That inventory is informational and
+does not replace any license or notice text required by a component's
+distributor.
