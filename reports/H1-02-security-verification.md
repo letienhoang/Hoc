@@ -18,7 +18,7 @@
 | Registration UI and direct API | The Razor page exposes no local-registration inputs; both Razor and `/api/account/register` denial paths assert no user is persisted. | PASS |
 | Registration with a valid antiforgery token | The Razor registration POST includes a token and is denied by server policy before a user exists. | PASS |
 | Registration override prevention | The setting is `false`, accepts only its default provider, and Global/Tenant override attempts throw. | PASS |
-| Admin-managed creation | The existing service-level test verifies administrator-managed identity creation in the isolated fixture. | PASS |
+| Admin-managed creation | The existing service-level application-service test verifies identity creation in the isolated fixture. It does not independently prove an authenticated Admin can create a user through the actual HTTP endpoint. | PASS — service-level evidence only |
 | Reader baseline | Reader is non-default, has no claims or role grants, and its seed is idempotent. | PASS |
 | Anonymous and Reader identity-list access | The real `/api/identity/users` endpoint challenges anonymous requests, denies Reader, and returns a valid list to Admin. | PASS |
 | Reader user creation | Reader POST to `/api/identity/users` carries an antiforgery token, is authorization-denied, and the proposed user is absent from SQLite. | PASS |
@@ -27,7 +27,7 @@
 
 ## Existing and added verification
 
-Existing H1-02A/B/C coverage is retained: protected-route challenge, invalid/valid login, antiforgery login rejection, logout, public-registration Razor/API denial, immutable registration settings, role seed/idempotency/no-grants, and identity-list authorization.
+Existing H1-02A/B/C coverage is retained: protected-route challenge, invalid/valid login, antiforgery login rejection, logout, public-registration Razor/API denial, immutable registration settings, role seed/idempotency/no-grants, and identity-list authorization. The registration tests verify the local-registration behavior only. ABP also has a separate external-login registration flow, but no external identity-provider configuration or exploitable external-registration path has been established for Học. Any future external authentication integration requires a separate registration-policy review; it is not classified here as a confirmed vulnerability.
 
 This change adds only three negative TestServer/SQLite tests: Reader user creation, Reader role assignment, and Reader permission-management access. The two mutation requests carry a freshly issued antiforgery token, assert an authorization-denial response rather than 404/500/validation failure, and check that the targeted persisted state did not change.
 
@@ -43,7 +43,9 @@ The Web-project build emitted one pre-existing external test-host warning, `CS70
 
 ## Security findings and remaining risks
 
-- **Medium — fail-open compatibility risk:** `HocAccountSettingDefinitionProvider` returns without enforcing the disabled default if the underlying ABP `IsSelfRegistrationEnabled` definition is absent. Current module dependencies supply it and the current path is covered, but an ABP/module-composition regression could silently restore upstream behavior. No production remediation is included because this H1-02D1 task is verification-only; require an Owner-approved, separately reviewed fail-closed startup policy before changing it.
+- **Future hardening concern — missing setting definition:** `HocAccountSettingDefinitionProvider` silently returns if the underlying ABP `IsSelfRegistrationEnabled` definition is absent. In the reviewed ABP 10.7.0 path, a missing definition makes `SettingProvider.GetOrNullAsync()` return `null`; `IsTrueAsync()` is true only for the string `true`; and local registration is rejected when the setting evaluates false. The missing-definition path therefore evaluates false for local registration and does not, by itself, establish a fail-open registration bypass. A fail-fast startup validation could be considered later to detect configuration drift, but it is optional hardening rather than urgent vulnerability remediation.
+- **LIMITATION — Admin HTTP creation not independently verified:** The Admin-managed creation result is an application-service test in an isolated fixture. The real HTTP endpoint is verified for Admin/Reader identity-list access, but this report does not independently establish an authenticated Admin HTTP create-user operation.
+- **NOT VERIFIED — external registration policy:** No external identity provider or valid external-login context has been demonstrated in Học. The ABP external-login registration path needs separate policy review if such authentication is introduced.
 - **NOT VERIFIED — browser evidence:** TestServer HTTP assertions do not prove browser cookie handling, rendered error UX, CSRF behavior in a real browser, or session invalidation across concurrent tabs.
 - **NOT VERIFIED — PostgreSQL/runtime evidence:** SQLite/TestServer does not establish PostgreSQL behavior, deployed configuration, production database state, or production authorization.
 - **NOT VERIFIED — H1-01 runtime limitation:** H1-01’s isolated local runtime proof does not establish a deployed, browser-verified, PostgreSQL-backed service. H1-02 inherits that limitation.
@@ -58,4 +60,4 @@ The Web-project build emitted one pre-existing external test-host warning, `CS70
 
 ## Technical Lead recommendation
 
-**Conditional recommendation: do not declare H1-02 accepted yet.** Local TestServer/SQLite authorization evidence is suitable to advance the Draft PR and request review after validation. D2 browser and approved PostgreSQL runtime evidence, plus an Owner decision on the missing-setting fail-open risk, remain gates for H1-02 acceptance.
+**H1-02D1 automated security evidence remains valid, subject to the stated limitations. H1-02 is NOT ACCEPTED.** Local TestServer/SQLite authorization evidence is suitable to advance the Draft PR and request review after validation. Required D2 browser and approved PostgreSQL runtime evidence remain gates for H1-02 acceptance; unavailable runtime evidence is not a PASS.
