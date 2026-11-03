@@ -14,9 +14,11 @@ receives no permission grants or role claims. No custom Học permission has bee
 introduced: business-module permissions remain out of scope until an actual
 protected resource exists.
 
-The focused Web test suite uses ABP's built-in `AbpIdentity.Users` permission
-on an authenticated HTTP probe. It verifies an anonymous login challenge, an
-authenticated Reader redirect to `/Account/AccessDenied`, and an Admin `200
-OK`. This is isolated SQLite/TestServer evidence only. It is not PostgreSQL,
-browser, deployed runtime, tenant-provisioning, or production authorization
-evidence.
+The focused Web test suite exercises ABP Identity's actual `GET
+/api/identity/users` endpoint, whose `IdentityUserAppService.GetListAsync`
+requires the built-in `AbpIdentity.Users` permission. It verifies an anonymous
+login challenge without user-list data, an authenticated Reader redirect to
+`/Account/AccessDenied`, and an Admin `200 OK` response containing the paged
+user-list shape. This is isolated SQLite/TestServer evidence only. It is not
+PostgreSQL, browser, deployed runtime, tenant-provisioning, or production
+authorization evidence.
