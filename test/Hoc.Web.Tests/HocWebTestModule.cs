@@ -12,6 +12,7 @@ using Hoc.Localization;
 using Hoc.Web;
 using Hoc.Web.Menus;
 using Hoc.Authentication;
+using Volo.Abp.Authorization.Permissions;
 using Volo.Abp.AspNetCore.TestBase;
 using Volo.Abp.Localization;
 using Volo.Abp.Modularity;
@@ -46,10 +47,16 @@ public class HocWebTestModule : AbpModule
 
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
-        context.Services.Replace(ServiceDescriptor.Transient<IAuthorizationService, DefaultAuthorizationService>());
-
         ConfigureLocalizationServices(context.Services);
         ConfigureNavigationServices(context.Services);
+    }
+
+    public override void PostConfigureServices(ServiceConfigurationContext context)
+    {
+        context.Services.RemoveAll<IAuthorizationService>();
+        context.Services.AddTransient<IAuthorizationService, DefaultAuthorizationService>();
+        context.Services.RemoveAll<IPermissionChecker>();
+        context.Services.AddTransient<IPermissionChecker, PermissionChecker>();
     }
 
     private static void ConfigureLocalizationServices(IServiceCollection services)
