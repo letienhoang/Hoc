@@ -3,10 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Mail;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Volo.Abp.Data;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Identity;
@@ -17,21 +21,30 @@ namespace Hoc.Data;
 
 public class HocDbMigrationService : ITransientDependency
 {
+    public const string BootstrapAdministratorEmailConfigurationKey = "Bootstrap:Administrator:Email";
+    public const string BootstrapAdministratorPasswordConfigurationKey = "Bootstrap:Administrator:Password";
+
     public ILogger<HocDbMigrationService> Logger { get; set; }
 
+    private readonly IConfiguration _configuration;
     private readonly IDataSeeder _dataSeeder;
     private readonly IEnumerable<IHocDbSchemaMigrator> _dbSchemaMigrators;
+    private readonly IOptions<IdentityOptions> _identityOptions;
     private readonly ITenantRepository _tenantRepository;
     private readonly ICurrentTenant _currentTenant;
 
     public HocDbMigrationService(
+        IConfiguration configuration,
         IDataSeeder dataSeeder,
         IEnumerable<IHocDbSchemaMigrator> dbSchemaMigrators,
+        IOptions<IdentityOptions> identityOptions,
         ITenantRepository tenantRepository,
         ICurrentTenant currentTenant)
     {
+        _configuration = configuration;
         _dataSeeder = dataSeeder;
         _dbSchemaMigrators = dbSchemaMigrators;
+        _identityOptions = identityOptions;
         _tenantRepository = tenantRepository;
         _currentTenant = currentTenant;
 
@@ -40,6 +53,7 @@ public class HocDbMigrationService : ITransientDependency
 
     public async Task MigrateAsync()
     {
+        var bootstrapAdministratorCredentials = GetBootstrapAdministratorCredentials();
         var initialMigrationAdded = AddInitialMigrationIfNotExist();
 
         if (initialMigrationAdded)
@@ -50,7 +64,7 @@ public class HocDbMigrationService : ITransientDependency
         Logger.LogInformation("Started database migrations...");
 
         await MigrateDatabaseSchemaAsync();
-        await SeedDataAsync();
+        await SeedDataAsync(bootstrapAdministratorCredentials);
 
         Logger.LogInformation($"Successfully completed host database migrations.");
 
@@ -75,7 +89,7 @@ public class HocDbMigrationService : ITransientDependency
                     }
                 }
 
-                await SeedDataAsync(tenant);
+                await SeedDataAsync(bootstrapAdministratorCredentials, tenant);
             }
 
             Logger.LogInformation($"Successfully completed {tenant.Name} tenant database migrations.");
@@ -96,15 +110,73 @@ public class HocDbMigrationService : ITransientDependency
         }
     }
 
-    private async Task SeedDataAsync(Tenant? tenant = null)
+    private async Task SeedDataAsync(
+        BootstrapAdministratorCredentials bootstrapAdministratorCredentials,
+        Tenant? tenant = null)
     {
         Logger.LogInformation($"Executing {(tenant == null ? "host" : tenant.Name + " tenant")} database seed...");
 
         await _dataSeeder.SeedAsync(new DataSeedContext(tenant?.Id)
-            .WithProperty(IdentityDataSeedContributor.AdminEmailPropertyName, IdentityDataSeedContributor.AdminEmailDefaultValue)
-            .WithProperty(IdentityDataSeedContributor.AdminPasswordPropertyName, IdentityDataSeedContributor.AdminPasswordDefaultValue)
+            .WithProperty(IdentityDataSeedContributor.AdminEmailPropertyName, bootstrapAdministratorCredentials.Email)
+            .WithProperty(IdentityDataSeedContributor.AdminPasswordPropertyName, bootstrapAdministratorCredentials.Password)
         );
     }
+
+    private BootstrapAdministratorCredentials GetBootstrapAdministratorCredentials()
+    {
+        var email = _configuration[BootstrapAdministratorEmailConfigurationKey];
+        var password = _configuration[BootstrapAdministratorPasswordConfigurationKey];
+
+        if (!IsValidBootstrapAdministratorEmail(email) ||
+            !IsValidBootstrapAdministratorPassword(password))
+        {
+            throw new InvalidOperationException(
+                "Bootstrap Administrator credentials configuration is missing or invalid.");
+        }
+
+        return new BootstrapAdministratorCredentials(email!, password!);
+    }
+
+    private bool IsValidBootstrapAdministratorPassword(string? password)
+    {
+        if (string.IsNullOrWhiteSpace(password) ||
+            string.Equals(
+                password,
+                IdentityDataSeedContributor.AdminPasswordDefaultValue,
+                StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var options = _identityOptions.Value.Password;
+
+        return password.Length >= options.RequiredLength &&
+            (!options.RequireNonAlphanumeric || password.Any(character => !char.IsLetterOrDigit(character))) &&
+            (!options.RequireLowercase || password.Any(char.IsLower)) &&
+            (!options.RequireUppercase || password.Any(char.IsUpper)) &&
+            (!options.RequireDigit || password.Any(char.IsDigit)) &&
+            password.Distinct().Count() >= options.RequiredUniqueChars;
+    }
+
+    private static bool IsValidBootstrapAdministratorEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return false;
+        }
+
+        try
+        {
+            var parsedEmail = new MailAddress(email);
+            return string.Equals(parsedEmail.Address, email, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    private sealed record BootstrapAdministratorCredentials(string Email, string Password);
 
     private bool AddInitialMigrationIfNotExist()
     {
