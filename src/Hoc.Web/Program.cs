@@ -1,10 +1,12 @@
 ﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Events;
+using Hoc.EntityFrameworkCore;
 
 namespace Hoc.Web;
 
@@ -29,9 +31,16 @@ public class Program
         {
             Log.Information("Starting web host.");
             var builder = WebApplication.CreateBuilder(args);
-            builder.Host.AddAppSettingsSecretsJson()
-                .UseAutofac()
+            builder.Host.UseAutofac()
                 .UseSerilog();
+            builder.Configuration
+                .AddHostLocalSecretsJson(
+                    builder.Environment.ContentRootPath,
+                    Directory.GetCurrentDirectory())
+                .AddDevelopmentSecretsJson(
+                    builder.Environment.EnvironmentName,
+                    hostSecretsDirectory: builder.Environment.ContentRootPath,
+                    currentDirectory: Directory.GetCurrentDirectory());
             await builder.AddApplicationAsync<HocWebModule>();
             var app = builder.Build();
             await app.InitializeApplicationAsync();
