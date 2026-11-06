@@ -1,6 +1,6 @@
 # Học Engineering Workflow v2
 
-Status: **Owner-approved process proposal, pending merge to main** (2026-11-06).
+Status: **Owner-approved repository policy, merged to main** (2026-11-06).
 Applies to the standalone `letienhoang/Hoc` repository. This process does not
 change HocTat/HSOne deployment governance.
 
@@ -100,7 +100,10 @@ Local tests are **Codex-reported** unless reproduced independently; GitHub
 CI evidence is tied to a specific SHA. Unit, SQLite/TestServer, PostgreSQL,
 browser and deployed-runtime proof are not interchangeable. Browser
 acceptance remains separate for H1-02; do not label it complete without
-actual browser evidence.
+actual browser evidence. For browser acceptance, prefer Codex in Chrome
+(`@Chrome`) and retain DOM, network and console evidence. If Chrome
+connectivity is blocked, report the limitation; do not automatically switch to
+custom CDP, HeadlessChrome or desktop automation.
 
 Observe PR cycle time, number of review rounds, Owner interruptions,
 CI reliability and post-merge defects. Revise the workflow after real usage;

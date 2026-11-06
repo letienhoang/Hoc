@@ -2541,6 +2541,19 @@
           "Microsoft.NET.Test.Sdk": "[17.14.1, )"
         }
       },
+      "hoc.demorecords.application.contracts": {
+        "type": "Project",
+        "dependencies": {
+          "Volo.Abp.Authorization": "[10.7.0, )"
+        }
+      },
+      "hoc.demorecords.web": {
+        "type": "Project",
+        "dependencies": {
+          "Hoc.DemoRecords.Application.Contracts": "[1.0.0, )",
+          "Volo.Abp.UI.Navigation": "[10.7.0, )"
+        }
+      },
       "hoc.domain": {
         "type": "Project",
         "dependencies": {
@@ -2634,6 +2647,8 @@
         "type": "Project",
         "dependencies": {
           "Hoc.Application": "[1.0.0, )",
+          "Hoc.DemoRecords.Application.Contracts": "[1.0.0, )",
+          "Hoc.DemoRecords.Web": "[1.0.0, )",
           "Hoc.EntityFrameworkCore": "[1.0.0, )",
           "Hoc.HttpApi": "[1.0.0, )",
           "Serilog.AspNetCore": "[9.0.0, )",

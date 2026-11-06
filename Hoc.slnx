@@ -23,6 +23,10 @@
     
     <Project Path="src/Hoc.Web/Hoc.Web.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Hoc.DemoRecords.Application.Contracts/Hoc.DemoRecords.Application.Contracts.csproj" />
+    <Project Path="samples/Hoc.DemoRecords.Web/Hoc.DemoRecords.Web.csproj" />
+  </Folder>
   <Folder Name="/test/">
     <Project Path="test/Hoc.Application.Tests/Hoc.Application.Tests.csproj" />
     <Project Path="test/Hoc.Domain.Tests/Hoc.Domain.Tests.csproj" />

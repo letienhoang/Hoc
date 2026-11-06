@@ -6,6 +6,10 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Hoc.DemoRecords;
+using Hoc.DemoRecords.Localization;
+using Hoc.DemoRecords.Web;
+using Hoc.DemoRecords.Web.Menus;
 using Hoc.EntityFrameworkCore;
 using Hoc.Localization;
 using Hoc.MultiTenancy;
@@ -47,6 +51,7 @@ namespace Hoc.Web;
     typeof(HocHttpApiModule),
     typeof(HocApplicationModule),
     typeof(HocEntityFrameworkCoreModule),
+    typeof(DemoRecordsWebModule),
     typeof(AbpAutofacModule),
     typeof(AbpIdentityWebModule),
     typeof(AbpSettingManagementWebModule),
@@ -71,6 +76,7 @@ public class HocWebModule : AbpModule
                 typeof(HocDomainSharedModule).Assembly,
                 typeof(HocApplicationModule).Assembly,
                 typeof(HocApplicationContractsModule).Assembly,
+                typeof(DemoRecordsApplicationContractsModule).Assembly,
                 typeof(HocWebModule).Assembly
             );
         });
@@ -173,6 +179,7 @@ public class HocWebModule : AbpModule
         Configure<AbpNavigationOptions>(options =>
         {
             options.MenuContributors.Add(new HocMenuContributor());
+            options.MenuContributors.Add(new DemoRecordsMenuContributor());
         });
     }
 
