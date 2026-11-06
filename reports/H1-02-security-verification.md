@@ -1,63 +1,118 @@
-# H1-02 Security Verification
+# H1-02D2 Browser Acceptance — 2026-11-06
 
-## Scope and evidence
+## Conclusion
 
-- **Main baseline:** `24db5df1252b06812d10adac269a6f30b8e2529a`.
-- **Verified security-test source revision:** `c9547ef7b2ab6db5da176d7dbca38d3cbe41721a`.
-- **Environment:** local Windows TestServer, ABP 10.7.0, .NET SDK 10.0.403, isolated in-memory SQLite supplied by `HocEntityFrameworkCoreTestModule`.
-- **Out of scope:** DbMigrator, PostgreSQL connection or writes, production access, real credentials, browser automation, deployment, and merge.
-- **Test authorization integrity:** `RolePermissionWebTestBase` replaces the permissive test registrations with ABP's `AbpAuthorizationService`, `MethodInvocationAuthorizationService`, `PermissionChecker`, and `HttpContextCurrentPrincipalAccessor`. Assertions also verify these implementations at runtime.
+**ACCEPT — for the approved local Development / `hoc_dev` browser-acceptance
+scope.** The evidence below is real local-host runtime, PostgreSQL, and
+Chrome-browser evidence. It is not deployed-runtime or production evidence.
 
-## Verification matrix
+## Scope and target
 
-| Control | Evidence | Result |
+- **Source:** `main` at `1564041342e2085540eb6165a849d14172583ea9`; the
+  worktree was clean before this documentation update.
+- **Host:** `Hoc.Web`, Development, content root
+  `D:\job\OaiPhongLabs\HocTat\Hoc\src\Hoc.Web`, listening only on
+  `http://127.0.0.1:51235`.
+- **Database:** the Development overlay resolved to PostgreSQL database
+  `hoc_dev` as `hoc_owner`; Npgsql completed a `VerifyFull` connection.
+  `20261102145512_InitialCreate` was the sole recorded migration.
+- **Database topology:** zero tenants and tenant connection strings before and
+  after the run. The excluded historical local endpoint `127.0.0.1:55433`
+  was not listening and was not used.
+- **Asset/startup preflight:** the LeptonX package manifest, installed static
+  library root, and Release Web output were present. The host logged
+  Development and the intended content root before accepting requests.
+
+`pg_stat_ssl` reported `false` for the Neon backend connection. This does not
+contradict the Npgsql client-side `VerifyFull` result: with Neon proxying, that
+backend field is not a measurement of the client-to-proxy TLS session.
+
+## Browser evidence
+
+An isolated local **HeadlessChrome 156** profile was used against the running
+host, with Chrome DevTools Protocol browser and network observations. It did
+not reuse a personal browser profile or an external service. Sanitized
+browser/network observations are recorded below; no credentials, cookie
+values, antiforgery values, or user-list contents were retained.
+
+| Scenario | Sanitized browser / network evidence | Result |
 | --- | --- | --- |
-| Anonymous protected-route access | `Anonymous_request_to_protected_route_should_be_challenged` checks the login challenge and return URL. | PASS |
-| Login and antiforgery | Invalid credentials remain unauthenticated; a login POST without a token cannot authenticate; a valid token/login reaches the protected probe. | PASS |
-| Logout/session access | The authenticated client reaches the probe, then logout returns it to a challenge. | PASS |
-| Registration UI and direct API | The Razor page exposes no local-registration inputs; both Razor and `/api/account/register` denial paths assert no user is persisted. | PASS |
-| Registration with a valid antiforgery token | The Razor registration POST includes a token and is denied by server policy before a user exists. | PASS |
-| Registration override prevention | The setting is `false`, accepts only its default provider, and Global/Tenant override attempts throw. | PASS |
-| Admin-managed creation | The existing service-level application-service test verifies identity creation in the isolated fixture. It does not independently prove an authenticated Admin can create a user through the actual HTTP endpoint. | PASS — service-level evidence only |
-| Reader baseline | Reader is non-default, has no claims or role grants, and its seed is idempotent. | PASS |
-| Anonymous and Reader identity-list access | The real `/api/identity/users` endpoint challenges anonymous requests, denies Reader, and returns a valid list to Admin. | PASS |
-| Reader user creation | Reader POST to `/api/identity/users` carries an antiforgery token, is authorization-denied, and the proposed user is absent from SQLite. | PASS |
-| Reader role escalation | Reader PUT to `/api/identity/users/{id}/roles` carries an antiforgery token, is authorization-denied, and the target user has no roles. | PASS |
-| Reader permission-management access | Reader GET to `/api/permission-management/permissions` is authorization-denied; the existing role-grant test separately confirms Reader has no permission grants by default. | PASS |
+| Anonymous administrative MVC access | `/Identity/Users` rendered `/Account/Login?ReturnUrl=%2FIdentity%2FUsers`; no Identity authentication cookie. | PASS |
+| Anonymous administrative API access | Browser request to `/api/identity/users` received `302` to `/Account/Login`, followed the Login page, and had no Identity authentication cookie. | PASS |
+| Invalid Administrator sign-in | The browser remained on Login, displayed `Invalid username or password!`, and had zero Identity authentication cookies. | PASS |
+| Administrator sign-in and user interface | Valid configured Administrator sign-in reached `/Identity/Users`; the Users grid was present. Browser `GET /api/identity/users` returned `200` with an `items` list. The session cookie was `HttpOnly`, `Lax`, path `/`; its value was not retained. | PASS |
+| Administrator logout | Logout left zero Identity authentication cookies; subsequent protected navigation challenged at Login. | PASS |
+| Self-registration UI | `/Account/Register` contained only an antiforgery field and the disabled-registration notice; it had no Username, Email, Password, or submit controls. | PASS |
+| Direct Razor registration | Anonymous valid-antiforgery POST returned `200` with the disabled-registration policy message; PostgreSQL count for the proposed user was `0` before and after. | PASS |
+| Direct registration API | Anonymous browser POST to `/api/account/register` returned `403`, `success=false`, and the disabled-registration policy message; PostgreSQL count for the proposed user was `0` before and after. | PASS |
 
-## Existing and added verification
+## Reader authorization evidence
 
-Existing H1-02A/B/C coverage is retained: protected-route challenge, invalid/valid login, antiforgery login rejection, logout, public-registration Razor/API denial, immutable registration settings, role seed/idempotency/no-grants, and identity-list authorization. The registration tests verify the local-registration behavior only. ABP also has a separate external-login registration flow, but no external identity-provider configuration or exploitable external-registration path has been established for Học. Any future external authentication integration requires a separate registration-policy review; it is not classified here as a confirmed vulnerability.
+The Administrator browser session created exactly one scoped account,
+`h1-02d2-reader-20261106-1825` (ID
+`3a24c2cb-205b-4498-9b8e-2e936baebc9d`), through
+`POST /api/identity/users` (`200`) and assigned only `Reader` through
+`PUT /api/identity/users/{id}/roles` (`204`). PostgreSQL then showed exactly
+one user row, exactly one `Reader` membership, zero user claims, and zero
+`Reader` role permission grants.
 
-This change adds only three negative TestServer/SQLite tests: Reader user creation, Reader role assignment, and Reader permission-management access. The two mutation requests carry a freshly issued antiforgery token, assert an authorization-denial response rather than 404/500/validation failure, and check that the targeted persisted state did not change.
+All Reader mutation requests below first obtained a fresh valid antiforgery
+token in the authenticated browser. They were authorization denials, not
+CSRF, routing, or server-error results.
 
-## Local validation
+| Scenario | Sanitized browser / network evidence | PostgreSQL before / after | Result |
+| --- | --- | --- | --- |
+| Reader login | Browser reached `/` and held a new `HttpOnly` Identity session cookie. | Dedicated account was active with only `Reader`. | PASS |
+| User-list access | `/Identity/Users` rendered `/Account/AccessDenied?ReturnUrl=%2FIdentity%2FUsers`; no Users grid was present. | No mutation. | PASS |
+| Create Identity user | Browser POST to `/api/identity/users` received `302` to `/Account/AccessDenied` after a valid token. | Proposed username: `0` before, `0` after. | PASS |
+| Assign an Admin role | Browser PUT to `/api/identity/users/{id}/roles` received `302` to `/Account/AccessDenied` after a valid token. | Existing Reader memberships: `Reader` before and after. | PASS |
+| Permission management | Browser GET to `/api/permission-management/permissions?providerName=R&providerKey=Reader` received `302` to `/Account/AccessDenied`. | No mutation. | PASS |
 
-| Command | Result |
+## Cleanup and final database verification
+
+The Administrator browser session deleted only the identified Reader test
+account through `DELETE /api/identity/users/{id}` (`204`). This endpoint uses
+ABP soft deletion: the physical row remains as one `IsDeleted=true` tombstone,
+but the task account has no active identity.
+
+Final read-only PostgreSQL checks:
+
+| Check | Result |
 | --- | --- |
-| `./.tools/dotnet/dotnet.exe test test/Hoc.Web.Tests/Hoc.Web.Tests.csproj -c Release -m:1 /nr:false --no-build --no-restore --logger "console;verbosity=minimal"` | PASS — 18 passed, 0 failed, 0 skipped; isolated TestServer/SQLite. |
-| `./.tools/dotnet/dotnet.exe build Hoc.slnx -c Release -m:1 /nr:false --no-restore` | PASS — 0 warnings, 0 errors. |
-| `git diff --check` | PASS before each commit. |
+| Active accounts named by this task (Reader and all denied-registration/create proposals) | `0` |
+| Test Reader tombstone | `1`, `IsDeleted=true` |
+| Active Administrator user count | `1` (same count as preflight) |
+| `admin` role count | `1` |
+| `Reader` role count | `1` |
+| Reader role permission grants | `0` |
+| Migration history | `20261102145512_InitialCreate` |
+| Tenants / tenant connection strings | `0` / `0` |
 
-The Web-project build emitted one pre-existing external test-host warning, `CS7022` from `Microsoft.NET.Test.Sdk.Program.cs`; the full solution Release build reported 0 warnings. No tests were skipped or failed. Local validation is not independent CI verification.
+No migration, seeding, DbMigrator execution, arbitrary SQL write, production
+access, source change, or modification of a pre-existing account was
+performed. The initial Administrator count, role counts, Reader grants,
+migration history, and tenant topology agree with the runtime preflight. A
+cryptographic before/after fingerprint of the pre-existing Administrator row
+was not captured, so this report does not claim a byte-level row comparison.
 
-## Security findings and remaining risks
+## Evidence references and limitations
 
-- **Future hardening concern — missing setting definition:** `HocAccountSettingDefinitionProvider` silently returns if the underlying ABP `IsSelfRegistrationEnabled` definition is absent. In the reviewed ABP 10.7.0 path, a missing definition makes `SettingProvider.GetOrNullAsync()` return `null`; `IsTrueAsync()` is true only for the string `true`; and local registration is rejected when the setting evaluates false. The missing-definition path therefore evaluates false for local registration and does not, by itself, establish a fail-open registration bypass. A fail-fast startup validation could be considered later to detect configuration drift, but it is optional hardening rather than urgent vulnerability remediation.
-- **LIMITATION — Admin HTTP creation not independently verified:** The Admin-managed creation result is an application-service test in an isolated fixture. The real HTTP endpoint is verified for Admin/Reader identity-list access, but this report does not independently establish an authenticated Admin HTTP create-user operation.
-- **NOT VERIFIED — external registration policy:** No external identity provider or valid external-login context has been demonstrated in Học. The ABP external-login registration path needs separate policy review if such authentication is introduced.
-- **NOT VERIFIED — browser evidence:** TestServer HTTP assertions do not prove browser cookie handling, rendered error UX, CSRF behavior in a real browser, or session invalidation across concurrent tabs.
-- **NOT VERIFIED — PostgreSQL/runtime evidence:** SQLite/TestServer does not establish PostgreSQL behavior, deployed configuration, production database state, or production authorization.
-- **NOT VERIFIED — H1-01 runtime limitation:** H1-01’s isolated local runtime proof does not establish a deployed, browser-verified, PostgreSQL-backed service. H1-02 inherits that limitation.
+- Browser/network evidence is the sanitized Chrome DevTools Protocol capture
+  summarized in the two tables above: route, status, redirect target, rendered
+  path/control presence, and persistence result only.
+- The task-specific browser-control host was unavailable. A visible Chrome
+  instance available through a separate RDP machine could not reach this
+  host's loopback address, so it was not used as evidence. The accepted
+  browser session was instead the locally installed Chrome engine with an
+  isolated headless profile bound to this host's loopback address.
+- This verifies the local Development host plus the approved Neon development
+  database. It does not prove a deployed endpoint, production configuration,
+  production data, external identity-provider registration, or a human-visible
+  interactive-browser run on the RDP machine.
+- Prior H1-02D1 TestServer/SQLite evidence is a distinct evidence class and is
+  not used to establish any browser or PostgreSQL conclusion here.
 
-## D2 execution checklist (Owner approval required)
+## Final recommendation
 
-1. Approve a disposable, named PostgreSQL target and its ownership; do not use production or an unrelated service.
-2. Authorize a dedicated non-administrative Reader test account and an administrator-operated test account; keep credentials in an approved secret mechanism.
-3. Start the approved Web host only, with the approved target and configuration, without running DbMigrator unless separately authorized.
-4. In a real browser, record anonymous, Reader, and Admin outcomes for the tested identity and permission routes; include logout/session behavior and registration denial with a valid antiforgery submission.
-5. Query only the approved disposable target to confirm denied mutations created no users, role memberships, or permission grants; preserve redacted evidence and clean up only under explicit authorization.
-
-## Technical Lead recommendation
-
-**H1-02D1 automated security evidence remains valid, subject to the stated limitations. H1-02 is NOT ACCEPTED.** Local TestServer/SQLite authorization evidence is suitable to advance the Draft PR and request review after validation. Required D2 browser and approved PostgreSQL runtime evidence remain gates for H1-02 acceptance; unavailable runtime evidence is not a PASS.
+**ACCEPT** the H1-02D2 browser acceptance scope. Retain the limitations above
+for any later deployment or production-readiness decision.
