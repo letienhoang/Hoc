@@ -14,18 +14,26 @@ public class DbMigratorHostedService : IHostedService
 {
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
     private readonly IConfiguration _configuration;
+    private readonly IHostEnvironment _hostEnvironment;
 
-    public DbMigratorHostedService(IHostApplicationLifetime hostApplicationLifetime, IConfiguration configuration)
+    public DbMigratorHostedService(
+        IHostApplicationLifetime hostApplicationLifetime,
+        IConfiguration configuration,
+        IHostEnvironment hostEnvironment)
     {
         _hostApplicationLifetime = hostApplicationLifetime;
         _configuration = configuration;
+        _hostEnvironment = hostEnvironment;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        HocDbMigrationService.IsHostOnlyMigrationEnabled(_configuration, _hostEnvironment);
+
         using (var application = await AbpApplicationFactory.CreateAsync<HocDbMigratorModule>(options =>
         {
            options.Services.ReplaceConfiguration(_configuration);
+           options.Services.AddSingleton(_hostEnvironment);
            options.UseAutofac();
            options.Services.AddLogging(c => c.AddSerilog());
            options.AddDataMigrationEnvironment();

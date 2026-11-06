@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -23,12 +24,14 @@ public class HocDbMigrationService : ITransientDependency
 {
     public const string BootstrapAdministratorEmailConfigurationKey = "Bootstrap:Administrator:Email";
     public const string BootstrapAdministratorPasswordConfigurationKey = "Bootstrap:Administrator:Password";
+    public const string HostOnlyMigrationConfigurationKey = "Migration:HostOnly";
 
     public ILogger<HocDbMigrationService> Logger { get; set; }
 
     private readonly IConfiguration _configuration;
     private readonly IDataSeeder _dataSeeder;
     private readonly IEnumerable<IHocDbSchemaMigrator> _dbSchemaMigrators;
+    private readonly IHostEnvironment _hostEnvironment;
     private readonly IOptions<IdentityOptions> _identityOptions;
     private readonly ITenantRepository _tenantRepository;
     private readonly ICurrentTenant _currentTenant;
@@ -37,6 +40,7 @@ public class HocDbMigrationService : ITransientDependency
         IConfiguration configuration,
         IDataSeeder dataSeeder,
         IEnumerable<IHocDbSchemaMigrator> dbSchemaMigrators,
+        IHostEnvironment hostEnvironment,
         IOptions<IdentityOptions> identityOptions,
         ITenantRepository tenantRepository,
         ICurrentTenant currentTenant)
@@ -44,6 +48,7 @@ public class HocDbMigrationService : ITransientDependency
         _configuration = configuration;
         _dataSeeder = dataSeeder;
         _dbSchemaMigrators = dbSchemaMigrators;
+        _hostEnvironment = hostEnvironment;
         _identityOptions = identityOptions;
         _tenantRepository = tenantRepository;
         _currentTenant = currentTenant;
@@ -53,7 +58,18 @@ public class HocDbMigrationService : ITransientDependency
 
     public async Task MigrateAsync()
     {
+        var hostOnlyMigrationEnabled = IsHostOnlyMigrationEnabled(_configuration, _hostEnvironment);
         var bootstrapAdministratorCredentials = GetBootstrapAdministratorCredentials();
+
+        if (hostOnlyMigrationEnabled)
+        {
+            await MigrateDatabaseSchemaAsync();
+            await SeedDataAsync(bootstrapAdministratorCredentials);
+
+            Logger.LogInformation("Successfully completed host-only database migration.");
+            return;
+        }
+
         var initialMigrationAdded = AddInitialMigrationIfNotExist();
 
         if (initialMigrationAdded)
@@ -135,6 +151,36 @@ public class HocDbMigrationService : ITransientDependency
         }
 
         return new BootstrapAdministratorCredentials(email!, password!);
+    }
+
+    public static bool IsHostOnlyMigrationEnabled(
+        IConfiguration configuration,
+        IHostEnvironment hostEnvironment)
+    {
+        var hostOnlyValue = configuration[HostOnlyMigrationConfigurationKey];
+
+        if (hostOnlyValue is null)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(hostOnlyValue) ||
+            !bool.TryParse(hostOnlyValue, out var hostOnly))
+        {
+            throw new InvalidOperationException("Migration HostOnly configuration is invalid.");
+        }
+
+        if (!hostOnly)
+        {
+            return false;
+        }
+
+        if (!hostEnvironment.IsDevelopment())
+        {
+            throw new InvalidOperationException("Host-only migration mode is supported only in Development.");
+        }
+
+        return true;
     }
 
     private bool IsValidBootstrapAdministratorPassword(string? password)
