@@ -1,5 +1,11 @@
 # Học repository guidance
 
+The canonical workflow and authorization matrix is
+[docs/engineering-workflow-v2.md](docs/engineering-workflow-v2.md).
+Owner approved this process on 2026-11-06. It becomes repository policy
+when merged into `main`; any task-specific Owner restriction overrides its
+general allowances.
+
 ## Architecture
 
 This is an ABP 10 layered MVC modular monolith. Keep the dependency direction:
@@ -19,33 +25,55 @@ local database state, environment overlays, user settings, or publish output.
 
 ## Build and tests
 
-Use `./.tools/dotnet/dotnet.exe` selected by `global.json`. On Windows, shared
-generated outputs can lock; use serialized builds (`-m:1`, and `/nr:false` if
-needed) before classifying `MSB4018` or `MSB3713` as source defects. Run only
-the focused, authorized validation first. Distinguish SQLite/TestServer/local
-evidence from PostgreSQL, browser, deployed-runtime, and production proof.
+Respect `global.json` and the repository's pinned .NET SDK. For local Windows
+development, use `./.tools/dotnet/dotnet.exe` when present; GitHub Actions uses
+`actions/setup-dotnet` to install the same SDK. Shared generated outputs can
+lock on Windows; use serialized builds (`-m:1`, and `/nr:false` if needed)
+before classifying `MSB4018` or `MSB3713` as source defects.
+
+Run focused local tests first. The PR CI supplies clean Release build and
+relevant full test suites. Distinguish locally reported, CI, SQLite/TestServer,
+PostgreSQL, browser and deployed-runtime evidence. CI must not require real
+Neon secrets or start DbMigrator.
 
 ## EF Core and migrations
 
 Changes to entities, mappings, indexes, or persistence need explicit migration
 review. Use `Hoc.EntityFrameworkCore` as both EF tooling project and startup
 project because it owns `HocDbContextFactory`. `Hoc.DbMigrator` is write-capable
-(migration and seed); never run it or connect to a database without an approved
-disposable target and Owner authorization.
+(migration and seed): **never execute it on a persistent database without a
+separate, bounded Owner GO**, even after a code PR is approved or merged.
+
+Read-only queries on an Owner-designated development target are allowed only
+within an authorized task scope. Verify the effective database and TLS; do not
+re-demand Owner evidence without reason. Production/destructive changes always
+need operation-specific approval and a recovery plan. For current Neon first
+initialization, use explicit Development + HostOnly mode and verify `hoc_dev`
+before any separately authorized write.
 
 ## Security and publication
 
-Fail closed on missing identity, target ownership, credentials, or approval.
+Fail closed on missing identity, target ownership, credentials or approval.
 Never print, store, or stage secrets. ABP-derived source and template assets
 retain their LGPL-3.0-only provenance; Apache-2.0 applies only to Học-owned
 material where copyright authority exists. LeptonX Lite remains an external
 NuGet dependency: do not vendor, extract, or claim redistribution rights.
 
-## Codex working rules
+## Codex working rules — scope-based authorization
 
-Check the exact worktree, branch/HEAD, status, and allowed paths before edits.
-Preserve unrelated files. Use named-path staging only when explicitly
-authorized; this repository currently has an Owner NO-GO for repository
-creation, staging, commits, pushes, packages, and deployment. For
-documentation-only changes, inspect the exact diff and run `git diff --check`;
-state omitted build/test work and all unresolved gates.
+Check exact worktree, branch/HEAD, status, and allowed paths before edits.
+Preserve unrelated files. **One explicit Owner GO for a bounded implementation
+task authorizes** a feature branch, scoped edits, non-mutating build/tests,
+named-path staging, commit, push and Draft PR creation/update within that
+task's allowed paths. Do not stop merely to re-ask permission for each Git step.
+Before committing, inspect the staged diff and verify no secret/generated or
+out-of-scope content. If the task's objective or paths change, stop for renewed
+scope authorization.
+
+This replaces the historical blanket NO-GO for staging, commit, push and PR
+publication. It does **not** authorize new repository creation, merging,
+deploying, running DbMigrator, writing persistent DB data, or modifying
+production. Owner controls merges during initial rollout. High-risk changes
+(authentication, authorization, secrets, migrations, tenant boundaries)
+require TL review before Owner merge decision. Document omitted checks and
+remaining gates without repeatedly requesting proof already established.
