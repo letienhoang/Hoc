@@ -1,0 +1,10 @@
+{
+  "culture": "en",
+  "texts": {
+    "Permission:DemoRecords": "Demo records",
+    "Permission:DemoRecords.Read": "Read demo records",
+    "Permission:DemoRecords.Create": "Create demo records",
+    "Permission:DemoRecords.Update": "Update demo records",
+    "Permission:DemoRecords.Delete": "Delete demo records"
+  }
+}

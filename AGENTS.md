@@ -3,8 +3,8 @@
 The canonical workflow and authorization matrix is
 [docs/engineering-workflow-v2.md](docs/engineering-workflow-v2.md).
 Owner approved this process on 2026-11-06. It becomes repository policy
-when merged into `main`; any task-specific Owner restriction overrides its
-general allowances.
+in `main`; any task-specific Owner restriction overrides its general
+allowances.
 
 ## Architecture
 
@@ -35,6 +35,11 @@ Run focused local tests first. The PR CI supplies clean Release build and
 relevant full test suites. Distinguish locally reported, CI, SQLite/TestServer,
 PostgreSQL, browser and deployed-runtime evidence. CI must not require real
 Neon secrets or start DbMigrator.
+
+For browser acceptance, prefer Codex in Chrome (`@Chrome`) and retain
+DOM, network and console evidence. If Chrome connectivity is blocked, report
+that limitation; do not automatically switch to custom CDP, HeadlessChrome or
+desktop automation.
 
 ## EF Core and migrations
 

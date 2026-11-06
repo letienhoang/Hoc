@@ -1812,6 +1812,19 @@
           "Volo.Abp.TenantManagement.Application.Contracts": "[10.7.0, )"
         }
       },
+      "hoc.demorecords.application.contracts": {
+        "type": "Project",
+        "dependencies": {
+          "Volo.Abp.Authorization": "[10.7.0, )"
+        }
+      },
+      "hoc.demorecords.web": {
+        "type": "Project",
+        "dependencies": {
+          "Hoc.DemoRecords.Application.Contracts": "[1.0.0, )",
+          "Volo.Abp.UI.Navigation": "[10.7.0, )"
+        }
+      },
       "hoc.domain": {
         "type": "Project",
         "dependencies": {
