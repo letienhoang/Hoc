@@ -40,6 +40,24 @@ jobs:
             'test/Hoc.HttpApi.Client.ConsoleTestApp/appsettings.secrets.json'
           ) | ForEach-Object { Set-Content -Path $_ -Value '{}' -Encoding utf8 }
 
+      # Web TestServer renders ABP bundles; generated wwwroot/libs is intentionally ignored.
+      - name: Install Node.js for ABP client assets
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate ABP client libraries
+        shell: pwsh
+        working-directory: src/Hoc.Web
+        run: |
+          npm install --global yarn@1.22.22
+          yarn install --frozen-lockfile --non-interactive
+          dotnet tool install Volo.Abp.Cli --tool-path "$env:RUNNER_TEMP/abp-cli" --version 10.7.0
+          & "$env:RUNNER_TEMP/abp-cli/abp.exe" install-libs
+          if (-not (Test-Path "wwwroot/libs/abp/core/abp.css")) {
+            throw "ABP static library installation did not produce abp.css."
+          }
+
       - name: Restore solution
         run: dotnet restore Hoc.slnx -m:1 /nr:false
 
