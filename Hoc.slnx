@@ -25,6 +25,8 @@
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Hoc.DemoRecords.Application.Contracts/Hoc.DemoRecords.Application.Contracts.csproj" />
+    <Project Path="samples/Hoc.DemoRecords.Domain/Hoc.DemoRecords.Domain.csproj" />
+    <Project Path="samples/Hoc.DemoRecords.EntityFrameworkCore/Hoc.DemoRecords.EntityFrameworkCore.csproj" />
     <Project Path="samples/Hoc.DemoRecords.Web/Hoc.DemoRecords.Web.csproj" />
   </Folder>
   <Folder Name="/test/">

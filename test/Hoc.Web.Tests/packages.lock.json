@@ -2547,6 +2547,19 @@
           "Volo.Abp.Authorization": "[10.7.0, )"
         }
       },
+      "hoc.demorecords.domain": {
+        "type": "Project",
+        "dependencies": {
+          "Volo.Abp.Ddd.Domain": "[10.7.0, )"
+        }
+      },
+      "hoc.demorecords.entityframeworkcore": {
+        "type": "Project",
+        "dependencies": {
+          "Hoc.DemoRecords.Domain": "[1.0.0, )",
+          "Volo.Abp.EntityFrameworkCore": "[10.7.0, )"
+        }
+      },
       "hoc.demorecords.web": {
         "type": "Project",
         "dependencies": {
@@ -2587,6 +2600,7 @@
       "hoc.domain.tests": {
         "type": "Project",
         "dependencies": {
+          "Hoc.DemoRecords.Domain": "[1.0.0, )",
           "Hoc.Domain": "[1.0.0, )",
           "Hoc.TestBase": "[1.0.0, )",
           "Microsoft.NET.Test.Sdk": "[17.14.1, )"
@@ -2595,6 +2609,7 @@
       "hoc.entityframeworkcore": {
         "type": "Project",
         "dependencies": {
+          "Hoc.DemoRecords.EntityFrameworkCore": "[1.0.0, )",
           "Hoc.Domain": "[1.0.0, )",
           "Volo.Abp.AuditLogging.EntityFrameworkCore": "[10.7.0, )",
           "Volo.Abp.BackgroundJobs.EntityFrameworkCore": "[10.7.0, )",
@@ -2647,7 +2662,6 @@
         "type": "Project",
         "dependencies": {
           "Hoc.Application": "[1.0.0, )",
-          "Hoc.DemoRecords.Application.Contracts": "[1.0.0, )",
           "Hoc.DemoRecords.Web": "[1.0.0, )",
           "Hoc.EntityFrameworkCore": "[1.0.0, )",
           "Hoc.HttpApi": "[1.0.0, )",

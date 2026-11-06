@@ -1,4 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Hoc.DemoRecords.DemoRecords;
+using Hoc.DemoRecords.EntityFrameworkCore;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
 using Volo.Abp.Data;
@@ -23,7 +25,7 @@ public class HocDbContext :
     IIdentityDbContext,
     ITenantManagementDbContext
 {
-    /* Add DbSet properties for your Aggregate Roots / Entities here. */
+    public DbSet<DemoRecord> DemoRecords { get; set; }
 
     #region Entities from the modules
 
@@ -73,14 +75,7 @@ public class HocDbContext :
         builder.ConfigureOpenIddict();
         builder.ConfigureFeatureManagement();
         builder.ConfigureTenantManagement();
+        builder.ConfigureDemoRecords();
 
-        /* Configure your own tables/entities inside here */
-
-        //builder.Entity<YourEntity>(b =>
-        //{
-        //    b.ToTable(HocConsts.DbTablePrefix + "YourEntities", HocConsts.DbSchema);
-        //    b.ConfigureByConvention(); //auto configure for the base class props
-        //    //...
-        //});
     }
 }

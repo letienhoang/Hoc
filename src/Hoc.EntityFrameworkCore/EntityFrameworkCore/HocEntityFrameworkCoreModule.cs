@@ -1,4 +1,5 @@
 ﻿using System;
+using Hoc.DemoRecords.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Volo.Abp.Uow;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
@@ -17,6 +18,7 @@ namespace Hoc.EntityFrameworkCore;
 
 [DependsOn(
     typeof(HocDomainModule),
+    typeof(DemoRecordsEntityFrameworkCoreModule),
     typeof(AbpIdentityEntityFrameworkCoreModule),
     typeof(AbpOpenIddictEntityFrameworkCoreModule),
     typeof(AbpPermissionManagementEntityFrameworkCoreModule),
