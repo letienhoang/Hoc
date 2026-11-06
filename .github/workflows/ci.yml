@@ -1,0 +1,58 @@
+name: .NET CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: build-and-test
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install pinned .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Verify SDK
+        run: dotnet --version
+
+      - name: Restore solution
+        run: dotnet restore Hoc.slnx -m:1 /nr:false
+
+      - name: Build solution (Release)
+        run: dotnet build Hoc.slnx --configuration Release --no-restore -m:1 /nr:false
+
+      - name: Domain tests
+        run: dotnet test test/Hoc.Domain.Tests/Hoc.Domain.Tests.csproj --configuration Release --no-build --no-restore --logger 'trx;LogFileName=domain.trx' -m:1 /nr:false
+
+      - name: Application tests
+        run: dotnet test test/Hoc.Application.Tests/Hoc.Application.Tests.csproj --configuration Release --no-build --no-restore --logger 'trx;LogFileName=application.trx' -m:1 /nr:false
+
+      - name: EF Core SQLite tests
+        run: dotnet test test/Hoc.EntityFrameworkCore.Tests/Hoc.EntityFrameworkCore.Tests.csproj --configuration Release --no-build --no-restore --logger 'trx;LogFileName=efcore.trx' -m:1 /nr:false
+
+      - name: Web TestServer tests
+        run: dotnet test test/Hoc.Web.Tests/Hoc.Web.Tests.csproj --configuration Release --no-build --no-restore --logger 'trx;LogFileName=web.trx' -m:1 /nr:false
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-test-reports
+          path: test/**/TestResults/*.trx
+          if-no-files-found: ignore
+          retention-days: 14
