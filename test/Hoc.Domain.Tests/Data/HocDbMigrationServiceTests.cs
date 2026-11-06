@@ -194,7 +194,8 @@ public class HocDbMigrationServiceTests
             new Dictionary<string, string?>
             {
                 [HocDbMigrationService.BootstrapAdministratorEmailConfigurationKey] = credentials.Email,
-                [HocDbMigrationService.BootstrapAdministratorPasswordConfigurationKey] = credentials.Password
+                [HocDbMigrationService.BootstrapAdministratorPasswordConfigurationKey] = credentials.Password,
+                [HocDbMigrationService.HostOnlyMigrationConfigurationKey] = "false"
             },
             Environments.Production,
             new List<Tenant> { tenant });
@@ -216,6 +217,8 @@ public class HocDbMigrationServiceTests
 
     [Theory]
     [InlineData("Production", "true")]
+    [InlineData("Development", "")]
+    [InlineData("Development", " ")]
     [InlineData("Development", "not-a-boolean")]
     public async Task Unsupported_host_only_configuration_should_fail_before_writes(
         string environmentName,
@@ -238,6 +241,8 @@ public class HocDbMigrationServiceTests
 
     [Theory]
     [InlineData("Production", "true")]
+    [InlineData("Development", "")]
+    [InlineData("Development", " ")]
     [InlineData("Development", "not-a-boolean")]
     public void Host_only_mode_validation_should_fail_before_ABP_initialization(
         string environmentName,
@@ -254,6 +259,38 @@ public class HocDbMigrationServiceTests
 
         Should.Throw<InvalidOperationException>(() =>
             HocDbMigrationService.IsHostOnlyMigrationEnabled(configuration, hostEnvironment));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("false")]
+    public void Missing_or_false_host_only_mode_should_preserve_default_behavior(string? hostOnlyValue)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [HocDbMigrationService.HostOnlyMigrationConfigurationKey] = hostOnlyValue
+            })
+            .Build();
+        var hostEnvironment = Substitute.For<IHostEnvironment>();
+        hostEnvironment.EnvironmentName.Returns(Environments.Production);
+
+        HocDbMigrationService.IsHostOnlyMigrationEnabled(configuration, hostEnvironment).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Development_true_host_only_mode_should_be_enabled()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [HocDbMigrationService.HostOnlyMigrationConfigurationKey] = "true"
+            })
+            .Build();
+        var hostEnvironment = Substitute.For<IHostEnvironment>();
+        hostEnvironment.EnvironmentName.Returns(Environments.Development);
+
+        HocDbMigrationService.IsHostOnlyMigrationEnabled(configuration, hostEnvironment).ShouldBeTrue();
     }
 
     private static MigrationServiceFixture CreateFixture(

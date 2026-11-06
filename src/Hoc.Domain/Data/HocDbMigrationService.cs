@@ -159,12 +159,13 @@ public class HocDbMigrationService : ITransientDependency
     {
         var hostOnlyValue = configuration[HostOnlyMigrationConfigurationKey];
 
-        if (string.IsNullOrWhiteSpace(hostOnlyValue))
+        if (hostOnlyValue is null)
         {
             return false;
         }
 
-        if (!bool.TryParse(hostOnlyValue, out var hostOnly))
+        if (string.IsNullOrWhiteSpace(hostOnlyValue) ||
+            !bool.TryParse(hostOnlyValue, out var hostOnly))
         {
             throw new InvalidOperationException("Migration HostOnly configuration is invalid.");
         }
