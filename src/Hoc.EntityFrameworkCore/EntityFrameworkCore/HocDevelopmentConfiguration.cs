@@ -46,24 +46,36 @@ public static class HocDevelopmentConfiguration
         return configuration.AddJsonFile(secretsPath, optional: false, reloadOnChange: false);
     }
 
-    public static IConfigurationBuilder AddHostLocalSecretsJson(
+    public static IConfigurationBuilder AddDevelopmentHostLocalSecretsJson(
         this IConfigurationBuilder configuration,
+        string environmentName,
         string? hostSecretsDirectory,
-        string? currentDirectory = null)
+        string? currentDirectory = null,
+        string? workspaceRoot = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var inspectedDirectories = GetHostSecretsDirectories(hostSecretsDirectory, currentDirectory);
+        if (!string.Equals(environmentName, "Development", StringComparison.OrdinalIgnoreCase))
+        {
+            return configuration;
+        }
 
-        foreach (var directory in inspectedDirectories)
+        var resolvedCurrentDirectory = currentDirectory ?? Directory.GetCurrentDirectory();
+        ValidateHostLocalConnectionString(hostSecretsDirectory, resolvedCurrentDirectory);
+
+        if (IsDifferentDirectory(hostSecretsDirectory, resolvedCurrentDirectory))
         {
             configuration.AddJsonFile(
-                Path.Combine(directory, "appsettings.secrets.json"),
+                Path.Combine(resolvedCurrentDirectory, "appsettings.secrets.json"),
                 optional: true,
                 reloadOnChange: false);
         }
 
-        return configuration;
+        return configuration.AddDevelopmentSecretsJson(
+            environmentName,
+            workspaceRoot,
+            hostSecretsDirectory,
+            resolvedCurrentDirectory);
     }
 
     public static string FindWorkspaceRoot()
@@ -182,6 +194,13 @@ public static class HocDevelopmentConfiguration
 
         return inspectedDirectories;
     }
+
+    private static bool IsDifferentDirectory(string? firstDirectory, string secondDirectory) =>
+        string.IsNullOrWhiteSpace(firstDirectory)
+        || !string.Equals(
+            Path.GetFullPath(firstDirectory),
+            Path.GetFullPath(secondDirectory),
+            StringComparison.OrdinalIgnoreCase);
 
     private static void AddHostSecretsDirectory(
         string? directory,

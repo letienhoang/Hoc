@@ -31,16 +31,13 @@ public class Program
         {
             Log.Information("Starting web host.");
             var builder = WebApplication.CreateBuilder(args);
-            builder.Host.UseAutofac()
+            builder.Host.AddAppSettingsSecretsJson()
+                .UseAutofac()
                 .UseSerilog();
-            builder.Configuration
-                .AddHostLocalSecretsJson(
-                    builder.Environment.ContentRootPath,
-                    Directory.GetCurrentDirectory())
-                .AddDevelopmentSecretsJson(
+            builder.Configuration.AddDevelopmentHostLocalSecretsJson(
                     builder.Environment.EnvironmentName,
-                    hostSecretsDirectory: builder.Environment.ContentRootPath,
-                    currentDirectory: Directory.GetCurrentDirectory());
+                    builder.Environment.ContentRootPath,
+                    Directory.GetCurrentDirectory());
             await builder.AddApplicationAsync<HocWebModule>();
             var app = builder.Build();
             await app.InitializeApplicationAsync();

@@ -246,16 +246,107 @@ public class HocDevelopmentConfigurationTests : IDisposable
 
         var configuration = new ConfigurationBuilder()
             .SetBasePath(launchDirectory)
-            .AddHostLocalSecretsJson(launchDirectory, launchDirectory)
-            .AddDevelopmentSecretsJson(
+            .AddJsonFile("appsettings.secrets.json", optional: false, reloadOnChange: true)
+            .AddDevelopmentHostLocalSecretsJson(
                 Environments.Development,
-                _workspaceRoot,
                 launchDirectory,
-                launchDirectory)
+                launchDirectory,
+                _workspaceRoot)
             .Build();
 
         Assert.StartsWith("Host=neon.example", configuration.GetConnectionString("Default"), StringComparison.Ordinal);
         Assert.Equal("synthetic-admin", configuration["Bootstrap:AdministratorUserName"]);
+    }
+
+    [Fact]
+    public void Development_host_wiring_loads_current_directory_settings_after_the_abp_content_root_source()
+    {
+        WriteDevelopmentSecrets(ValidDevelopmentConnectionString);
+        var contentRoot = Path.Combine(_workspaceRoot, "content-root");
+        var currentDirectory = Path.Combine(_workspaceRoot, "working-directory");
+        Directory.CreateDirectory(contentRoot);
+        Directory.CreateDirectory(currentDirectory);
+        File.WriteAllText(
+            Path.Combine(contentRoot, "appsettings.secrets.json"),
+            "{ \"Bootstrap\": { \"ContentRootSetting\": \"content\" } }");
+        File.WriteAllText(
+            Path.Combine(currentDirectory, "appsettings.secrets.json"),
+            "{ \"Bootstrap\": { \"AdministratorUserName\": \"synthetic-admin\" } }");
+
+        var configuration = new ConfigurationBuilder()
+            .AddJsonFile(Path.Combine(contentRoot, "appsettings.secrets.json"), optional: false, reloadOnChange: true)
+            .AddDevelopmentHostLocalSecretsJson(
+                Environments.Development,
+                contentRoot,
+                currentDirectory,
+                _workspaceRoot)
+            .Build();
+
+        Assert.StartsWith("Host=neon.example", configuration.GetConnectionString("Default"), StringComparison.Ordinal);
+        Assert.Equal("content", configuration["Bootstrap:ContentRootSetting"]);
+        Assert.Equal("synthetic-admin", configuration["Bootstrap:AdministratorUserName"]);
+    }
+
+    [Fact]
+    public void Production_host_wiring_preserves_the_abp_content_root_source_without_a_current_directory_override()
+    {
+        var contentRoot = Path.Combine(_workspaceRoot, "content-root");
+        var currentDirectory = Path.Combine(_workspaceRoot, "working-directory");
+        Directory.CreateDirectory(contentRoot);
+        Directory.CreateDirectory(currentDirectory);
+        File.WriteAllText(
+            Path.Combine(contentRoot, "appsettings.secrets.json"),
+            "{ \"Bootstrap\": { \"AdministratorUserName\": \"content-root-admin\" } }");
+        File.WriteAllText(
+            Path.Combine(currentDirectory, "appsettings.secrets.json"),
+            "{ \"Bootstrap\": { \"AdministratorUserName\": \"working-directory-admin\" }, \"ConnectionStrings\": { \"Default\": \"Host=conflict.example\" } }");
+
+        var configuration = new ConfigurationBuilder()
+            .AddJsonFile(Path.Combine(contentRoot, "appsettings.secrets.json"), optional: false, reloadOnChange: true)
+            .AddDevelopmentHostLocalSecretsJson(
+                Environments.Production,
+                contentRoot,
+                currentDirectory,
+                _workspaceRoot)
+            .Build();
+
+        Assert.Equal("content-root-admin", configuration["Bootstrap:AdministratorUserName"]);
+        Assert.Null(configuration.GetConnectionString("Default"));
+    }
+
+    [Fact]
+    public void Development_host_wiring_rejects_a_current_directory_connection_conflict()
+    {
+        WriteDevelopmentSecrets(ValidDevelopmentConnectionString);
+        var contentRoot = Path.Combine(_workspaceRoot, "content-root");
+        var currentDirectory = Path.Combine(_workspaceRoot, "working-directory");
+        Directory.CreateDirectory(contentRoot);
+        Directory.CreateDirectory(currentDirectory);
+        File.WriteAllText(
+            Path.Combine(currentDirectory, "appsettings.secrets.json"),
+            "{ \"ConnectionStrings\": { \"Default\": \"Host=conflict.example;Database=hoc;Username=conflict;Password=synthetic;Ssl Mode=VerifyFull\" } }");
+
+        var exception = Assert.Throws<InvalidOperationException>(() => new ConfigurationBuilder()
+            .AddDevelopmentHostLocalSecretsJson(
+                Environments.Development,
+                contentRoot,
+                currentDirectory,
+                _workspaceRoot));
+
+        Assert.Contains("must not specify", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Web_and_DbMigrator_wiring_retains_the_abp_provider_and_uses_development_only_augmentation()
+    {
+        var root = HocDevelopmentConfiguration.FindWorkspaceRoot();
+        var webProgram = File.ReadAllText(Path.Combine(root, "src", "Hoc.Web", "Program.cs"));
+        var dbMigratorProgram = File.ReadAllText(Path.Combine(root, "src", "Hoc.DbMigrator", "Program.cs"));
+
+        Assert.Contains("builder.Host.AddAppSettingsSecretsJson()", webProgram, StringComparison.Ordinal);
+        Assert.Contains("AddDevelopmentHostLocalSecretsJson(", webProgram, StringComparison.Ordinal);
+        Assert.Contains(".AddAppSettingsSecretsJson()", dbMigratorProgram, StringComparison.Ordinal);
+        Assert.Contains("AddDevelopmentHostLocalSecretsJson(", dbMigratorProgram, StringComparison.Ordinal);
     }
 
     public void Dispose()

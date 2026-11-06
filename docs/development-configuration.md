@@ -20,11 +20,12 @@ lowest to highest, is:
    environment-specific settings, User Secrets, environment variables, and
    command-line arguments. EF Core design-time tooling intentionally uses only
    the DbMigrator `appsettings.json` baseline.
-2. The existing host-local `appsettings.secrets.json` overlay. The hosts load
-   the content-root and current-working-directory locations (once if they are
-   the same), so Development validation inspects those exact sources. It may supply
-   host settings such as Administrator bootstrap configuration, but it must not
-   contain `ConnectionStrings:Default`; doing so fails configuration before a
+2. The original ABP host-local `appsettings.secrets.json` overlay, resolved
+   relative to its configured base path with its existing reload behavior. In
+   Development only, the current-working-directory overlay is additionally
+   inspected and loaded when it differs from that base path. Either overlay may
+   supply host settings such as Administrator bootstrap configuration, but neither
+   may contain `ConnectionStrings:Default`; doing so fails configuration before a
    database option is created.
 3. The Development workspace file, after successful existence, JSON, and
    PostgreSQL connection-shape validation. It is added last and is therefore
@@ -33,8 +34,8 @@ lowest to highest, is:
 Missing, malformed, or incomplete Development shared configuration fails before
 application service registration (Web), host build/run (DbMigrator), or
 `DbContextOptions` creation (EF design time). In non-Development environments,
-the workspace file and host-local conflict check are not selected, preserving
-the existing production configuration behavior. EF Core design-time environment
+the workspace file and multi-location host-local conflict check are not selected;
+the original ABP host-local provider behavior is preserved. EF Core design-time environment
 selection is explicit: `DOTNET_ENVIRONMENT`, then `ASPNETCORE_ENVIRONMENT`.
 When neither is set, design-time configuration fails before it can select the
 tracked localhost template. This does not alter normal production host runtime
