@@ -38,7 +38,16 @@ public class DemoRecordsModuleTests : HocWebTestBase
     }
 
     [Fact]
-    public void Demo_records_menu_contributor_should_be_registered()
+    public void Demo_records_web_module_should_depend_on_the_contracts_module()
+    {
+        var dependsOn = typeof(DemoRecordsWebModule).GetCustomAttribute<DependsOnAttribute>();
+
+        dependsOn.ShouldNotBeNull();
+        dependsOn.DependedTypes.ShouldContain(typeof(DemoRecordsApplicationContractsModule));
+    }
+
+    [Fact]
+    public void Demo_records_web_module_should_register_its_menu_contributor()
     {
         var navigationOptions = GetRequiredService<IOptions<AbpNavigationOptions>>().Value;
 

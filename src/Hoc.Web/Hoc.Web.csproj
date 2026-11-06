@@ -51,7 +51,6 @@
     <ProjectReference Include="..\Hoc.Application\Hoc.Application.csproj" />
     <ProjectReference Include="..\Hoc.HttpApi\Hoc.HttpApi.csproj" />
     <ProjectReference Include="..\Hoc.EntityFrameworkCore\Hoc.EntityFrameworkCore.csproj" />
-    <ProjectReference Include="..\..\samples\Hoc.DemoRecords.Application.Contracts\Hoc.DemoRecords.Application.Contracts.csproj" />
     <ProjectReference Include="..\..\samples\Hoc.DemoRecords.Web\Hoc.DemoRecords.Web.csproj" />
     <PackageReference Include="Volo.Abp.Autofac" Version="10.7.0" />
     <PackageReference Include="Volo.Abp.Swashbuckle" Version="10.7.0" />
