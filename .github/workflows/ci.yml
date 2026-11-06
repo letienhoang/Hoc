@@ -30,6 +30,16 @@ jobs:
       - name: Verify SDK
         run: dotnet --version
 
+      # Two existing project files include these ignored paths with CopyToOutputDirectory=Always.
+      # Use secret-free placeholders solely to satisfy clean-runner MSBuild item copies.
+      - name: Prepare empty local config placeholders
+        shell: pwsh
+        run: |
+          @(
+            'src/Hoc.DbMigrator/appsettings.secrets.json'
+            'test/Hoc.HttpApi.Client.ConsoleTestApp/appsettings.secrets.json'
+          ) | ForEach-Object { Set-Content -Path $_ -Value '{}' -Encoding utf8 }
+
       - name: Restore solution
         run: dotnet restore Hoc.slnx -m:1 /nr:false
 
