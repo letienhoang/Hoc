@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Events;
+using Hoc.EntityFrameworkCore;
 
 namespace Hoc.DbMigrator;
 
@@ -33,6 +34,11 @@ class Program
     public static IHostBuilder CreateHostBuilder(string[] args) =>
         Host.CreateDefaultBuilder(args)
             .AddAppSettingsSecretsJson()
+            .ConfigureAppConfiguration((context, configuration) =>
+                configuration.AddDevelopmentHostLocalSecretsJson(
+                    context.HostingEnvironment.EnvironmentName,
+                    context.HostingEnvironment.ContentRootPath,
+                    Directory.GetCurrentDirectory()))
             .ConfigureLogging((context, logging) => logging.ClearProviders())
             .ConfigureServices((hostContext, services) =>
             {

@@ -1,10 +1,12 @@
 ﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Events;
+using Hoc.EntityFrameworkCore;
 
 namespace Hoc.Web;
 
@@ -32,6 +34,10 @@ public class Program
             builder.Host.AddAppSettingsSecretsJson()
                 .UseAutofac()
                 .UseSerilog();
+            builder.Configuration.AddDevelopmentHostLocalSecretsJson(
+                    builder.Environment.EnvironmentName,
+                    builder.Environment.ContentRootPath,
+                    Directory.GetCurrentDirectory());
             await builder.AddApplicationAsync<HocWebModule>();
             var app = builder.Build();
             await app.InitializeApplicationAsync();
