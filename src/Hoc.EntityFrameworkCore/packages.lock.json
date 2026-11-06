@@ -1432,6 +1432,19 @@
           "Volo.Abp.Core": "10.7.0"
         }
       },
+      "hoc.demorecords.domain": {
+        "type": "Project",
+        "dependencies": {
+          "Volo.Abp.Ddd.Domain": "[10.7.0, )"
+        }
+      },
+      "hoc.demorecords.entityframeworkcore": {
+        "type": "Project",
+        "dependencies": {
+          "Hoc.DemoRecords.Domain": "[1.0.0, )",
+          "Volo.Abp.EntityFrameworkCore": "[10.7.0, )"
+        }
+      },
       "hoc.domain": {
         "type": "Project",
         "dependencies": {

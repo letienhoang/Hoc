@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Hoc.Domain\Hoc.Domain.csproj" />
+    <ProjectReference Include="..\..\samples\Hoc.DemoRecords.Domain\Hoc.DemoRecords.Domain.csproj" />
     <ProjectReference Include="..\Hoc.TestBase\Hoc.TestBase.csproj" />
   </ItemGroup>
 
