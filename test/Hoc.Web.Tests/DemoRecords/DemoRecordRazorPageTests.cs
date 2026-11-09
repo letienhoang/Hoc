@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Hoc.Authorization;
 using Hoc.DemoRecords.DemoRecords;
@@ -25,6 +27,8 @@ namespace Hoc.DemoRecords.Tests;
 public class DemoRecordRazorPageTests : RolePermissionWebTestBase
 {
     private const string ListUrl = "/DemoRecords";
+    private const string MenuProbeUrl = "/_test/demorecords-menu";
+    private const string SecurityContextProbeUrl = "/_test/demorecords-security-context";
     private readonly IRepository<DemoRecord, Guid> _repository;
     private readonly IPermissionManager _permissionManager;
 
@@ -73,6 +77,82 @@ public class DemoRecordRazorPageTests : RolePermissionWebTestBase
     }
 
     [Fact]
+    public async Task Main_menu_should_be_visible_only_to_host_users_with_read_permission()
+    {
+        (await Client.GetAsync(MenuProbeUrl)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        await AssertMenuItemCountAsync(0);
+
+        var noPermissionUser = $"demorecords-menu-none-{Guid.NewGuid():N}";
+        await CreateUserAsync(noPermissionUser, $"{noPermissionUser}@hoc.test", HocRoleNames.Reader);
+        await LoginAsync(noPermissionUser, "Reader-permission-test-1!", MenuProbeUrl);
+        await AssertMenuItemCountAsync(0);
+
+        await GrantRolePermissionsAsync(HocRoleNames.Reader, DemoRecordsPermissions.Read);
+        var reader = $"demorecords-menu-reader-{Guid.NewGuid():N}";
+        await CreateUserAsync(reader, $"{reader}@hoc.test", HocRoleNames.Reader);
+        await LoginAsync(reader, "Reader-permission-test-1!", MenuProbeUrl);
+        await AssertMenuItemCountAsync(1);
+        (await Client.GetAsync("/Account/Logout")).StatusCode.ShouldBe(HttpStatusCode.Redirect);
+
+        var tenantName = $"tenant-menu-{Guid.NewGuid():N}";
+        var tenantId = await CreateTenantAsync(tenantName);
+        var tenantUser = $"demorecords-menu-tenant-{Guid.NewGuid():N}";
+        Guid tenantUserId;
+        using (GetRequiredService<ICurrentTenant>().Change(tenantId))
+        {
+            tenantUserId = await CreateUserAsync(tenantUser, $"{tenantUser}@hoc.test");
+            await _permissionManager.SetAsync(DemoRecordsPermissions.Read, "U", tenantUserId.ToString(), true);
+        }
+
+        await LoginAsync(tenantUser, "Reader-permission-test-1!", $"{MenuProbeUrl}?__tenant={Uri.EscapeDataString(tenantName)}", tenantName);
+        await AssertTenantPreconditionAsync(tenantUserId, tenantId, tenantName);
+        await AssertMenuItemCountAsync(0, $"?__tenant={Uri.EscapeDataString(tenantName)}");
+        await AssertMenuItemCountAsync(0);
+    }
+
+    [Fact]
+    public async Task Reader_and_tenant_posts_should_be_denied_without_mutating_records()
+    {
+        await GrantRolePermissionsAsync(HocRoleNames.Reader, DemoRecordsPermissions.Read);
+        var reader = $"demorecords-post-reader-{Guid.NewGuid():N}";
+        await CreateUserAsync(reader, $"{reader}@hoc.test", HocRoleNames.Reader);
+        await LoginAsync(reader, "Reader-permission-test-1!", ListUrl);
+        var record = new DemoRecord(Guid.NewGuid(), "Protected host record");
+        await InsertAsync(record);
+        var readerToken = await GetAntiForgeryTokenAsync("/Account/Register");
+
+        await AssertDeniedAsync(await Client.PostAsync("/DemoRecords/Create", Form(readerToken, "Reader create", null)));
+        await AssertDeniedAsync(await Client.PostAsync($"/DemoRecords/Edit/{record.Id}", Form(readerToken, "Reader update", null)));
+        await AssertDeniedAsync(await Client.PostAsync($"/DemoRecords/Delete/{record.Id}", Form(readerToken, null, null)));
+        (await _repository.GetAsync(record.Id)).Name.ShouldBe("Protected host record");
+        (await _repository.GetListAsync()).Any(item => item.Name == "Reader create").ShouldBeFalse();
+        (await Client.GetAsync("/Account/Logout")).StatusCode.ShouldBe(HttpStatusCode.Redirect);
+
+        var tenantName = $"tenant-post-{Guid.NewGuid():N}";
+        var tenantId = await CreateTenantAsync(tenantName);
+        var tenantUser = $"demorecords-post-tenant-{Guid.NewGuid():N}";
+        Guid tenantUserId;
+        using (GetRequiredService<ICurrentTenant>().Change(tenantId))
+        {
+            tenantUserId = await CreateUserAsync(tenantUser, $"{tenantUser}@hoc.test");
+            foreach (var permission in new[] { DemoRecordsPermissions.Create, DemoRecordsPermissions.Update, DemoRecordsPermissions.Delete })
+            {
+                await _permissionManager.SetAsync(permission, "U", tenantUserId.ToString(), true);
+            }
+        }
+
+        var tenantQuery = $"?__tenant={Uri.EscapeDataString(tenantName)}";
+        await LoginAsync(tenantUser, "Reader-permission-test-1!", $"{ListUrl}{tenantQuery}", tenantName);
+        await AssertTenantPreconditionAsync(tenantUserId, tenantId, tenantName, expectRead: false);
+        var tenantToken = await GetAntiForgeryTokenAsync($"/Account/Register{tenantQuery}");
+        await AssertDeniedAsync(await Client.PostAsync($"/DemoRecords/Create{tenantQuery}", Form(tenantToken, "Tenant create", null)));
+        await AssertDeniedAsync(await Client.PostAsync($"/DemoRecords/Edit/{record.Id}{tenantQuery}", Form(tenantToken, "Tenant update", null)));
+        await AssertDeniedAsync(await Client.PostAsync($"/DemoRecords/Delete/{record.Id}{tenantQuery}", Form(tenantToken, null, null)));
+        (await _repository.GetAsync(record.Id)).Name.ShouldBe("Protected host record");
+        (await _repository.GetListAsync()).Any(item => item.Name == "Tenant create").ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Admin_with_test_only_grants_should_complete_crud_and_reject_invalid_or_forged_posts()
     {
         await GrantRolePermissionsAsync("admin", DemoRecordsPermissions.Read, DemoRecordsPermissions.Create, DemoRecordsPermissions.Update, DemoRecordsPermissions.Delete);
@@ -93,7 +173,23 @@ public class DemoRecordRazorPageTests : RolePermissionWebTestBase
         var invalidToken = await GetAntiForgeryTokenAsync("/DemoRecords/Create");
         var invalid = await Client.PostAsync("/DemoRecords/Create", Form(invalidToken, "   ", null));
         invalid.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var invalidBody = await invalid.Content.ReadAsStringAsync();
+        invalidBody.ShouldContain("Input.Name");
+        invalidBody.ShouldContain("text-danger");
         (await _repository.GetListAsync()).Count.ShouldBe(countBeforeInvalid);
+
+        var csrfCount = (await _repository.GetListAsync()).Count;
+        using var rawAdminClient = await CreateRawAdminClientAsync();
+        (await rawAdminClient.GetAsync("/DemoRecords/Create")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        var missingToken = await rawAdminClient.PostAsync("/DemoRecords/Create", new StringContent("{}", Encoding.UTF8, "application/json"));
+        await AssertAntiforgeryRejectedAsync(missingToken);
+        var invalidTokenRequest = new HttpRequestMessage(HttpMethod.Post, "/DemoRecords/Create")
+        {
+            Content = new StringContent("{}", Encoding.UTF8, "application/json")
+        };
+        invalidTokenRequest.Headers.Add("RequestVerificationToken", "invalid-antiforgery-token");
+        await AssertAntiforgeryRejectedAsync(await rawAdminClient.SendAsync(invalidTokenRequest));
+        (await _repository.GetListAsync()).Count.ShouldBe(csrfCount);
 
         var deleteToken = await GetAntiForgeryTokenAsync($"/DemoRecords/Delete/{created.Id}");
         var deletion = await Client.PostAsync($"/DemoRecords/Delete/{created.Id}", Form(deleteToken, null, null));
@@ -187,6 +283,75 @@ public class DemoRecordRazorPageTests : RolePermissionWebTestBase
         return token;
     }
 
+    private async Task<HttpClient> CreateRawAdminClientAsync()
+    {
+        var client = new HttpClient(Server.CreateHandler()) { BaseAddress = Client.BaseAddress };
+        var loginUrl = $"/Account/Login?ReturnUrl={Uri.EscapeDataString(ListUrl)}";
+        var loginPage = await client.GetAsync(loginUrl);
+        loginPage.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var cookieHeader = GetCookieHeader(loginPage);
+        var document = new HtmlDocument();
+        document.LoadHtml(await loginPage.Content.ReadAsStringAsync());
+        var token = document.DocumentNode.SelectSingleNode("//input[@name='__RequestVerificationToken']")?.GetAttributeValue("value", string.Empty);
+        token.ShouldNotBeNullOrWhiteSpace();
+
+        using var login = new HttpRequestMessage(HttpMethod.Post, "/Account/Login")
+        {
+            Content = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("LoginInput.UserNameOrEmailAddress", "admin"),
+                new KeyValuePair<string, string>("LoginInput.Password", IdentityDataSeedContributor.AdminPasswordDefaultValue),
+                new KeyValuePair<string, string>("LoginInput.RememberMe", "false"),
+                new KeyValuePair<string, string>("ReturnUrl", ListUrl),
+                new KeyValuePair<string, string>("ReturnUrlHash", string.Empty)
+            })
+        };
+        login.Headers.Add("Cookie", cookieHeader);
+        var loginResponse = await client.SendAsync(login);
+        loginResponse.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        client.DefaultRequestHeaders.Add("Cookie", JoinCookies(cookieHeader, GetCookieHeader(loginResponse)));
+        return client;
+    }
+
+    private static string GetCookieHeader(HttpResponseMessage response)
+    {
+        return response.Headers.TryGetValues("Set-Cookie", out var values)
+            ? string.Join("; ", values.Select(value => value.Split(';', 2)[0]))
+            : string.Empty;
+    }
+
+    private static string JoinCookies(string first, string second)
+    {
+        return string.Join("; ", new[] { first, second }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    private async Task AssertMenuItemCountAsync(int expectedCount, string query = "")
+    {
+        var response = await Client.GetAsync($"{MenuProbeUrl}{query}");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var items = document.RootElement.GetProperty("items");
+        items.GetArrayLength().ShouldBe(expectedCount);
+        if (expectedCount == 1)
+        {
+            items[0].GetProperty("name").GetString().ShouldBe("DemoRecords.DemoRecords");
+            items[0].GetProperty("url").GetString().ShouldBe(ListUrl);
+        }
+    }
+
+    private async Task AssertTenantPreconditionAsync(Guid userId, Guid tenantId, string tenantName, bool expectRead = true)
+    {
+        var response = await Client.GetAsync($"{SecurityContextProbeUrl}?__tenant={Uri.EscapeDataString(tenantName)}");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = document.RootElement;
+        root.GetProperty("currentUser").GetProperty("id").GetGuid().ShouldBe(userId);
+        root.GetProperty("currentUser").GetProperty("tenantId").GetGuid().ShouldBe(tenantId);
+        root.GetProperty("currentTenant").GetProperty("id").GetGuid().ShouldBe(tenantId);
+        root.GetProperty("permissions").GetProperty(DemoRecordsPermissions.Read).GetBoolean().ShouldBe(expectRead);
+    }
+
     private static FormUrlEncodedContent Form(string? token, string? name, string? description)
     {
         var values = new List<KeyValuePair<string, string>>();
@@ -207,6 +372,15 @@ public class DemoRecordRazorPageTests : RolePermissionWebTestBase
     {
         var path = response.Headers.Location?.AbsolutePath;
         (response.StatusCode == HttpStatusCode.Forbidden || (response.StatusCode == HttpStatusCode.Redirect && path == "/Account/AccessDenied")).ShouldBeTrue();
+        return Task.CompletedTask;
+    }
+
+    private static Task AssertAntiforgeryRejectedAsync(HttpResponseMessage response)
+    {
+        var location = response.Headers.Location?.OriginalString;
+        (response.StatusCode == HttpStatusCode.BadRequest ||
+         (response.StatusCode == HttpStatusCode.Redirect &&
+          location?.Contains("httpStatusCode=400", StringComparison.Ordinal) == true)).ShouldBeTrue();
         return Task.CompletedTask;
     }
 }

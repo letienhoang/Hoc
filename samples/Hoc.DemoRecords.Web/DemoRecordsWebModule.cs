@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Hoc.DemoRecords.Web.Menus;
 using Volo.Abp.Modularity;
@@ -13,7 +14,18 @@ public class DemoRecordsWebModule : AbpModule
 {
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
-        context.Services.AddRazorPages()
+        context.Services.AddRazorPages(options =>
+            {
+                options.Conventions.AddPageApplicationModelConvention(
+                    "/DemoRecords/Create",
+                    model => model.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
+                options.Conventions.AddPageApplicationModelConvention(
+                    "/DemoRecords/Edit",
+                    model => model.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
+                options.Conventions.AddPageApplicationModelConvention(
+                    "/DemoRecords/Delete",
+                    model => model.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
+            })
             .AddApplicationPart(typeof(DemoRecordsWebModule).Assembly);
 
         Configure<AbpNavigationOptions>(options =>
