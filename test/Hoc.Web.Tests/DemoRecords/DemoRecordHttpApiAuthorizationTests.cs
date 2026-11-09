@@ -26,6 +26,7 @@ namespace Hoc.DemoRecords.Tests;
 public class DemoRecordHttpApiAuthorizationTests : RolePermissionWebTestBase
 {
     private const string CollectionUrl = "/api/demo-records/demo-record";
+    private const string SecurityContextProbeUrl = "/_test/demorecords-security-context";
     private readonly IRepository<DemoRecord, Guid> _repository;
     private readonly IPermissionManager _permissionManager;
 
@@ -84,6 +85,7 @@ public class DemoRecordHttpApiAuthorizationTests : RolePermissionWebTestBase
         await AssertDeniedAsync(await SendJsonAsync(HttpMethod.Delete, $"{CollectionUrl}/{existing.Id}", null, antiForgeryToken));
 
         (await _repository.GetAsync(existing.Id)).Name.ShouldBe("Reader visible record");
+        (await _repository.GetListAsync()).Any(record => record.Name == "Reader denied create").ShouldBeFalse();
     }
 
     [Fact]
@@ -165,10 +167,15 @@ public class DemoRecordHttpApiAuthorizationTests : RolePermissionWebTestBase
         await InsertAsync(existing);
 
         var tenantQuery = $"?__tenant={Uri.EscapeDataString(tenantName)}";
+        await AssertTenantSecurityContextAsync(tenantUserId, tenantId, tenantQuery, expectTenantContext: true);
         await AssertDeniedAsync(await Client.GetAsync($"{CollectionUrl}{tenantQuery}"));
+        await AssertDeniedAsync(await Client.GetAsync($"{CollectionUrl}/{existing.Id}{tenantQuery}"));
         await AssertDeniedAsync(await SendJsonAsync(HttpMethod.Post, $"{CollectionUrl}{tenantQuery}", new { name = "Tenant denied create" }, antiForgeryToken));
         await AssertDeniedAsync(await SendJsonAsync(HttpMethod.Put, $"{CollectionUrl}/{existing.Id}{tenantQuery}", new { name = "Tenant denied update" }, antiForgeryToken));
         await AssertDeniedAsync(await SendJsonAsync(HttpMethod.Delete, $"{CollectionUrl}/{existing.Id}{tenantQuery}", null, antiForgeryToken));
+
+        await AssertTenantSecurityContextAsync(tenantUserId, tenantId, string.Empty, expectTenantContext: false);
+        await AssertDeniedAsync(await Client.GetAsync($"{CollectionUrl}/{existing.Id}"));
 
         (await _repository.GetAsync(existing.Id)).Name.ShouldBe("Host-only record");
         (await _repository.GetListAsync()).Any(record => record.Name == "Tenant denied create").ShouldBeFalse();
@@ -282,6 +289,36 @@ public class DemoRecordHttpApiAuthorizationTests : RolePermissionWebTestBase
         return token;
     }
 
+    private async Task AssertTenantSecurityContextAsync(
+        Guid expectedUserId,
+        Guid expectedTenantId,
+        string query,
+        bool expectTenantContext)
+    {
+        var response = await Client.GetAsync($"{SecurityContextProbeUrl}{query}");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = document.RootElement;
+        var currentUser = root.GetProperty("currentUser");
+        currentUser.GetProperty("id").GetGuid().ShouldBe(expectedUserId);
+        currentUser.GetProperty("tenantId").GetGuid().ShouldBe(expectedTenantId);
+        currentUser.GetProperty("isAuthenticated").GetBoolean().ShouldBeTrue();
+
+        if (expectTenantContext)
+        {
+            var currentTenant = root.GetProperty("currentTenant");
+            currentTenant.GetProperty("id").GetGuid().ShouldBe(expectedTenantId);
+            currentTenant.GetProperty("isAvailable").GetBoolean().ShouldBeTrue();
+
+            var permissions = root.GetProperty("permissions");
+            permissions.GetProperty(DemoRecordsPermissions.Read).GetBoolean().ShouldBeTrue();
+            permissions.GetProperty(DemoRecordsPermissions.Create).GetBoolean().ShouldBeTrue();
+            permissions.GetProperty(DemoRecordsPermissions.Update).GetBoolean().ShouldBeTrue();
+            permissions.GetProperty(DemoRecordsPermissions.Delete).GetBoolean().ShouldBeTrue();
+        }
+    }
+
     private static async Task<DemoRecordDto> ReadDtoAsync(HttpResponseMessage response)
     {
         var result = await response.Content.ReadFromJsonAsync<DemoRecordDto>();
@@ -291,7 +328,17 @@ public class DemoRecordHttpApiAuthorizationTests : RolePermissionWebTestBase
 
     private static Task AssertChallengeAsync(HttpResponseMessage response)
     {
-        (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Redirect).ShouldBeTrue();
+        var location = response.Headers.Location;
+        var locationPath = location is null
+            ? null
+            : location.IsAbsoluteUri
+                ? location.AbsolutePath
+                : location.OriginalString.Split('?', 2)[0];
+        var isChallenge = response.StatusCode == HttpStatusCode.Unauthorized ||
+            (response.StatusCode == HttpStatusCode.Redirect &&
+             locationPath == "/Account/Login" &&
+             location?.OriginalString.Contains("ReturnUrl=", StringComparison.Ordinal) == true);
+        isChallenge.ShouldBeTrue();
         return Task.CompletedTask;
     }
 
