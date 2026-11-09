@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Hoc.DemoRecords</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Hoc.DemoRecords.Application.Contracts\Hoc.DemoRecords.Application.Contracts.csproj" />
+    <ProjectReference Include="..\Hoc.DemoRecords.Domain\Hoc.DemoRecords.Domain.csproj" />
+    <PackageReference Include="Volo.Abp.Ddd.Application" Version="10.7.0" />
+  </ItemGroup>
+
+</Project>

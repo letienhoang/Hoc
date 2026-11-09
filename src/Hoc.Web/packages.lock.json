@@ -1812,10 +1812,19 @@
           "Volo.Abp.TenantManagement.Application.Contracts": "[10.7.0, )"
         }
       },
+      "hoc.demorecords.application": {
+        "type": "Project",
+        "dependencies": {
+          "Hoc.DemoRecords.Application.Contracts": "[1.0.0, )",
+          "Hoc.DemoRecords.Domain": "[1.0.0, )",
+          "Volo.Abp.Ddd.Application": "[10.7.0, )"
+        }
+      },
       "hoc.demorecords.application.contracts": {
         "type": "Project",
         "dependencies": {
-          "Volo.Abp.Authorization": "[10.7.0, )"
+          "Volo.Abp.Authorization": "[10.7.0, )",
+          "Volo.Abp.Ddd.Application.Contracts": "[10.7.0, )"
         }
       },
       "hoc.demorecords.domain": {
@@ -1829,6 +1838,13 @@
         "dependencies": {
           "Hoc.DemoRecords.Domain": "[1.0.0, )",
           "Volo.Abp.EntityFrameworkCore": "[10.7.0, )"
+        }
+      },
+      "hoc.demorecords.httpapi": {
+        "type": "Project",
+        "dependencies": {
+          "Hoc.DemoRecords.Application": "[1.0.0, )",
+          "Volo.Abp.AspNetCore.Mvc": "[10.7.0, )"
         }
       },
       "hoc.demorecords.web": {

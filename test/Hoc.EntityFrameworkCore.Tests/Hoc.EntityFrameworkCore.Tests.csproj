@@ -11,6 +11,7 @@
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.14" PrivateAssets="all" />
     <ProjectReference Include="..\..\src\Hoc.EntityFrameworkCore\Hoc.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\samples\Hoc.DemoRecords.Application\Hoc.DemoRecords.Application.csproj" />
     <ProjectReference Include="..\Hoc.Application.Tests\Hoc.Application.Tests.csproj" />
     <PackageReference Include="Volo.Abp.EntityFrameworkCore.Sqlite" Version="10.7.0" />
   </ItemGroup>
