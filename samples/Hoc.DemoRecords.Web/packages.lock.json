@@ -296,6 +296,14 @@
           "System.CodeDom": "10.0.11"
         }
       },
+      "Volo.Abp.Auditing.Contracts": {
+        "type": "Transitive",
+        "resolved": "10.7.0",
+        "contentHash": "F06gvM7VUl24ZCY0f22PIfCnA8J386w7Ug87vkJXH7CQqASa/zDntzk/XreGoAfBNqkNPcz++Ypasm/nC+PrxQ==",
+        "dependencies": {
+          "Volo.Abp.Core": "10.7.0"
+        }
+      },
       "Volo.Abp.Authorization": {
         "type": "Transitive",
         "resolved": "10.7.0",
@@ -344,6 +352,16 @@
           "Volo.Abp.EventBus.Abstractions": "10.7.0",
           "Volo.Abp.ObjectExtending": "10.7.0",
           "Volo.Abp.Uow": "10.7.0"
+        }
+      },
+      "Volo.Abp.Ddd.Application.Contracts": {
+        "type": "Transitive",
+        "resolved": "10.7.0",
+        "contentHash": "3OlU0MA35u+BdW7HccdI5lfvc06gS2RN8dpL9W3SnKheRtvRmPavGKMmYhdcAxieF1mli92aBxpsoPyfkJWOyQ==",
+        "dependencies": {
+          "Volo.Abp.Auditing.Contracts": "10.7.0",
+          "Volo.Abp.Data": "10.7.0",
+          "Volo.Abp.Localization": "10.7.0"
         }
       },
       "Volo.Abp.EventBus.Abstractions": {
@@ -497,7 +515,8 @@
       "hoc.demorecords.application.contracts": {
         "type": "Project",
         "dependencies": {
-          "Volo.Abp.Authorization": "[10.7.0, )"
+          "Volo.Abp.Authorization": "[10.7.0, )",
+          "Volo.Abp.Ddd.Application.Contracts": "[10.7.0, )"
         }
       }
     }

@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Hoc.DemoRecords;
 using Volo.Abp;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
@@ -14,6 +15,7 @@ namespace Hoc.EntityFrameworkCore;
 
 [DependsOn(
     typeof(HocApplicationTestModule),
+    typeof(DemoRecordsApplicationModule),
     typeof(HocEntityFrameworkCoreModule),
     typeof(AbpEntityFrameworkCoreSqliteModule)
     )]

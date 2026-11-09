@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Hoc.DemoRecords.Web;
+using Hoc.DemoRecords.HttpApi;
 using Hoc.EntityFrameworkCore;
 using Hoc.Localization;
 using Hoc.MultiTenancy;
@@ -49,6 +50,7 @@ namespace Hoc.Web;
     typeof(HocApplicationModule),
     typeof(HocEntityFrameworkCoreModule),
     typeof(DemoRecordsWebModule),
+    typeof(DemoRecordsHttpApiModule),
     typeof(AbpAutofacModule),
     typeof(AbpIdentityWebModule),
     typeof(AbpSettingManagementWebModule),
