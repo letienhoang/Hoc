@@ -1,0 +1,21 @@
+@page "/DemoRecords/Details/{id:guid}"
+@model Hoc.DemoRecords.Web.Pages.DemoRecords.DetailsModel
+
+<h1>@L["DemoRecords:Details"]</h1>
+
+<dl>
+    <dt>@L["DemoRecords:Name"]</dt>
+    <dd>@Model.Record.Name</dd>
+    <dt>@L["DemoRecords:Description"]</dt>
+    <dd>@Model.Record.Description</dd>
+</dl>
+
+@if (Model.CanUpdate)
+{
+    <a class="btn btn-primary" asp-page="/DemoRecords/Edit" asp-route-id="@Model.Record.Id">@L["DemoRecords:Edit"]</a>
+}
+@if (Model.CanDelete)
+{
+    <a class="btn btn-danger" asp-page="/DemoRecords/Delete" asp-route-id="@Model.Record.Id">@L["DemoRecords:Delete"]</a>
+}
+<a class="btn btn-outline-secondary" asp-page="/DemoRecords/Index">@L["DemoRecords:BackToList"]</a>

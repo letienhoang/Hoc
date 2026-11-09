@@ -5,6 +5,23 @@
     "Permission:DemoRecords.Read": "Read demo records",
     "Permission:DemoRecords.Create": "Create demo records",
     "Permission:DemoRecords.Update": "Update demo records",
-    "Permission:DemoRecords.Delete": "Delete demo records"
+    "Permission:DemoRecords.Delete": "Delete demo records",
+    "Menu:DemoRecords": "Demo records",
+    "DemoRecords:Title": "Demo records",
+    "DemoRecords:Details": "Demo record details",
+    "DemoRecords:Create": "Create demo record",
+    "DemoRecords:Edit": "Edit demo record",
+    "DemoRecords:Delete": "Delete demo record",
+    "DemoRecords:Name": "Name",
+    "DemoRecords:Description": "Description",
+    "DemoRecords:Actions": "Actions",
+    "DemoRecords:Save": "Save",
+    "DemoRecords:Cancel": "Cancel",
+    "DemoRecords:BackToList": "Back to list",
+    "DemoRecords:NoRecords": "No demo records are available.",
+    "DemoRecords:DeleteConfirmation": "Are you sure you want to delete this demo record?",
+    "DemoRecords:Previous": "Previous",
+    "DemoRecords:Next": "Next",
+    "DemoRecords:OperationFailed": "The request could not be completed. Please correct the highlighted values and try again."
   }
 }
