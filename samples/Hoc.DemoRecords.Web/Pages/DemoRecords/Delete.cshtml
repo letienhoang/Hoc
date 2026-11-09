@@ -1,0 +1,16 @@
+@page "/DemoRecords/Delete/{id:guid}"
+@attribute [Microsoft.AspNetCore.Mvc.ValidateAntiForgeryToken]
+@model Hoc.DemoRecords.Web.Pages.DemoRecords.DeleteModel
+
+<h1>@L["DemoRecords:Delete"]</h1>
+<p>@L["DemoRecords:DeleteConfirmation"]</p>
+
+<dl>
+    <dt>@L["DemoRecords:Name"]</dt>
+    <dd>@Model.Record.Name</dd>
+</dl>
+
+<form method="post">
+    <button type="submit" class="btn btn-danger">@L["DemoRecords:Delete"]</button>
+    <a class="btn btn-outline-secondary" asp-page="/DemoRecords/Details" asp-route-id="@Model.Record.Id">@L["DemoRecords:Cancel"]</a>
+</form>

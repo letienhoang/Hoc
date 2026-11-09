@@ -1,0 +1,57 @@
+@page "/DemoRecords"
+@model Hoc.DemoRecords.Web.Pages.DemoRecords.IndexModel
+
+<h1>@L["DemoRecords:Title"]</h1>
+
+@if (Model.CanCreate)
+{
+    <p><a class="btn btn-primary" asp-page="/DemoRecords/Create">@L["DemoRecords:Create"]</a></p>
+}
+
+@if (Model.Records.Items.Count == 0)
+{
+    <p>@L["DemoRecords:NoRecords"]</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>@L["DemoRecords:Name"]</th>
+                <th>@L["DemoRecords:Description"]</th>
+                <th>@L["DemoRecords:Actions"]</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var record in Model.Records.Items)
+        {
+            <tr>
+                <td><a asp-page="/DemoRecords/Details" asp-route-id="@record.Id">@record.Name</a></td>
+                <td>@record.Description</td>
+                <td>
+                    <a asp-page="/DemoRecords/Details" asp-route-id="@record.Id">@L["DemoRecords:Details"]</a>
+                    @if (Model.CanUpdate)
+                    {
+                        <a asp-page="/DemoRecords/Edit" asp-route-id="@record.Id">@L["DemoRecords:Edit"]</a>
+                    }
+                    @if (Model.CanDelete)
+                    {
+                        <a asp-page="/DemoRecords/Delete" asp-route-id="@record.Id">@L["DemoRecords:Delete"]</a>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+
+    <nav aria-label="@L["DemoRecords:Title"]">
+        @if (Model.HasPreviousPage)
+        {
+            <a class="btn btn-outline-secondary" asp-route-pageNumber="@(Model.PageNumber - 1)">@L["DemoRecords:Previous"]</a>
+        }
+        @if (Model.HasNextPage)
+        {
+            <a class="btn btn-outline-secondary" asp-route-pageNumber="@(Model.PageNumber + 1)">@L["DemoRecords:Next"]</a>
+        }
+    </nav>
+}

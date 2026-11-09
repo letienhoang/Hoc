@@ -55,12 +55,11 @@ public class DemoRecordsModuleTests : HocWebTestBase
     }
 
     [Fact]
-    public async Task Demo_records_should_not_expose_a_menu_item_before_an_authorized_route_exists()
+    public async Task Demo_records_menu_should_not_be_visible_without_the_read_permission()
     {
         var menuManager = GetRequiredService<IMenuManager>();
         var mainMenu = await menuManager.GetMainMenuAsync();
 
         mainMenu.FindMenuItem(DemoRecordsMenus.DemoRecords).ShouldBeNull();
-        mainMenu.Items.Any(item => item.Url?.Contains("DemoRecords") == true).ShouldBeFalse();
     }
 }

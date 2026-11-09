@@ -1,0 +1,21 @@
+@page "/DemoRecords/Edit/{id:guid}"
+@attribute [Microsoft.AspNetCore.Mvc.ValidateAntiForgeryToken]
+@model Hoc.DemoRecords.Web.Pages.DemoRecords.EditModel
+
+<h1>@L["DemoRecords:Edit"]</h1>
+
+<form method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="mb-3">
+        <label asp-for="Input.Name" class="form-label">@L["DemoRecords:Name"]</label>
+        <input asp-for="Input.Name" class="form-control" />
+        <span asp-validation-for="Input.Name" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label asp-for="Input.Description" class="form-label">@L["DemoRecords:Description"]</label>
+        <textarea asp-for="Input.Description" class="form-control"></textarea>
+        <span asp-validation-for="Input.Description" class="text-danger"></span>
+    </div>
+    <button type="submit" class="btn btn-primary">@L["DemoRecords:Save"]</button>
+    <a class="btn btn-outline-secondary" asp-page="/DemoRecords/Details" asp-route-id="@RouteData.Values["id"]">@L["DemoRecords:Cancel"]</a>
+</form>
