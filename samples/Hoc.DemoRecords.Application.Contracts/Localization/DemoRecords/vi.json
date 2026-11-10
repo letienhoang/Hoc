@@ -1,0 +1,27 @@
+{
+  "culture": "vi",
+  "texts": {
+    "Permission:DemoRecords": "Bản ghi minh họa",
+    "Permission:DemoRecords.Read": "Xem bản ghi minh họa",
+    "Permission:DemoRecords.Create": "Tạo bản ghi minh họa",
+    "Permission:DemoRecords.Update": "Cập nhật bản ghi minh họa",
+    "Permission:DemoRecords.Delete": "Xóa bản ghi minh họa",
+    "Menu:DemoRecords": "Bản ghi minh họa",
+    "DemoRecords:Title": "Bản ghi minh họa",
+    "DemoRecords:Details": "Chi tiết bản ghi minh họa",
+    "DemoRecords:Create": "Tạo bản ghi minh họa",
+    "DemoRecords:Edit": "Chỉnh sửa bản ghi minh họa",
+    "DemoRecords:Delete": "Xóa bản ghi minh họa",
+    "DemoRecords:Name": "Tên",
+    "DemoRecords:Description": "Mô tả",
+    "DemoRecords:Actions": "Thao tác",
+    "DemoRecords:Save": "Lưu",
+    "DemoRecords:Cancel": "Hủy",
+    "DemoRecords:BackToList": "Quay lại danh sách",
+    "DemoRecords:NoRecords": "Không có bản ghi minh họa nào.",
+    "DemoRecords:DeleteConfirmation": "Bạn có chắc chắn muốn xóa bản ghi minh họa này không?",
+    "DemoRecords:Previous": "Trước",
+    "DemoRecords:Next": "Sau",
+    "DemoRecords:OperationFailed": "Không thể hoàn tất yêu cầu. Vui lòng sửa các giá trị được đánh dấu rồi thử lại."
+  }
+}

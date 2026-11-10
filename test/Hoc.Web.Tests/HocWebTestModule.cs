@@ -61,7 +61,7 @@ public class HocWebTestModule : AbpModule
 
     private static void ConfigureLocalizationServices(IServiceCollection services)
     {
-        var cultures = new List<CultureInfo> { new CultureInfo("en"), new CultureInfo("tr") };
+        var cultures = new List<CultureInfo> { new CultureInfo("en"), new CultureInfo("tr"), new CultureInfo("vi") };
         services.Configure<RequestLocalizationOptions>(options =>
         {
             options.DefaultRequestCulture = new RequestCulture("en");

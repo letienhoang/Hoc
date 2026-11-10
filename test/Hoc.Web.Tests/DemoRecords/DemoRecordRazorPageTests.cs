@@ -54,6 +54,58 @@ public class DemoRecordRazorPageTests : RolePermissionWebTestBase
     }
 
     [Fact]
+    public async Task Demo_records_list_should_render_localized_text_for_English_and_Vietnamese()
+    {
+        await LoginAsync("admin", IdentityDataSeedContributor.AdminPasswordDefaultValue, ListUrl);
+
+        var expectedTexts = new Dictionary<string, string[]>
+        {
+            ["en"] = ["Demo records", "Create demo record", "No demo records are available."],
+            ["vi"] = ["Bản ghi minh họa", "Tạo bản ghi minh họa", "Không có bản ghi minh họa nào."]
+        };
+        var createTexts = new Dictionary<string, string[]>
+        {
+            ["en"] = ["Create demo record", "Name", "Description", "Save", "Cancel"],
+            ["vi"] = ["Tạo bản ghi minh họa", "Tên", "Mô tả", "Lưu", "Hủy"]
+        };
+
+        foreach (var (culture, texts) in expectedTexts)
+        {
+            Client.DefaultRequestHeaders.Remove("Accept-Language");
+            Client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", culture);
+
+            var response = await Client.GetAsync(ListUrl);
+            response.StatusCode.ShouldBe(HttpStatusCode.OK);
+            var html = await response.Content.ReadAsStringAsync();
+
+            foreach (var text in texts)
+            {
+                html.Contains(text).ShouldBeTrue($"{culture}:{text}");
+            }
+
+            html.ShouldNotContain("DemoRecords:Title");
+            html.ShouldNotContain("DemoRecords:Create");
+            html.ShouldNotContain("DemoRecords:NoRecords");
+            html.ShouldNotContain("Menu:DemoRecords");
+
+            var createResponse = await Client.GetAsync("/DemoRecords/Create");
+            createResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+            var createHtml = await createResponse.Content.ReadAsStringAsync();
+
+            foreach (var text in createTexts[culture])
+            {
+                createHtml.Contains(text).ShouldBeTrue($"{culture}:{text}");
+            }
+
+            createHtml.ShouldNotContain("DemoRecords:Create");
+            createHtml.ShouldNotContain("DemoRecords:Name");
+            createHtml.ShouldNotContain("DemoRecords:Description");
+            createHtml.ShouldNotContain("DemoRecords:Save");
+            createHtml.ShouldNotContain("DemoRecords:Cancel");
+        }
+    }
+
+    [Fact]
     public async Task Host_users_should_receive_only_the_pages_permitted_by_their_grants()
     {
         var noPermissionUser = $"demorecords-none-{Guid.NewGuid():N}";
