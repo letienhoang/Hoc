@@ -30,6 +30,10 @@ jobs:
       - name: Verify SDK
         run: dotnet --version
 
+      - name: Consumer validator self-tests
+        shell: pwsh
+        run: ./scripts/productization/test-verify-consumer.ps1
+
       # Two existing project files include these ignored paths with CopyToOutputDirectory=Always.
       # Use secret-free placeholders solely to satisfy clean-runner MSBuild item copies.
       - name: Prepare empty local config placeholders
