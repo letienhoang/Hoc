@@ -46,6 +46,21 @@ function Remove-ProjectReferenceLines([string] $Path) {
     $lines = [IO.File]::ReadAllLines($Path)
     [IO.File]::WriteAllLines($Path, @($lines | Where-Object { $_ -notmatch '(?i)Hoc\.DemoRecords|DemoRecords' }), [Text.UTF8Encoding]::new($false))
 }
+function Set-GeneratedConsumerReadme([string] $Path, [string] $Id) {
+    $content = [IO.File]::ReadAllText($Path)
+    $replacement = @"
+#### Database and migration ownership
+
+Source generation and a Release build do not create or initialize a database. This consumer deliberately has no inherited EF Core migration history. Before any database initialization, design and review consumer-owned initial migration source for this application's model.
+
+Applying that migration or running ``$Id.DbMigrator`` is a separate, explicitly authorized database operation. ``$Id.DbMigrator`` can both migrate and seed persistent data; do not run it as an automatic next step or merely because this source tree was generated.
+
+### Solution structure
+"@
+    $updated = [regex]::Replace($content, '(?s)#### Create the Database.*?### Solution structure', $replacement)
+    if ($updated -eq $content) { Fail "Generated README did not contain the expected database guidance section: $Path" }
+    [IO.File]::WriteAllText($Path, $updated, [Text.UTF8Encoding]::new($false))
+}
 function Rename-TreeIdentity([string] $Root, [string] $Id) {
     $textExtensions = @('.cs', '.csproj', '.cshtml', '.json', '.props', '.targets', '.slnx', '.config', '.md', '.txt', '.xml', '.js', '.css', '.yml', '.yaml', '.lock')
     $transformCount = 0
@@ -134,8 +149,22 @@ try {
     [IO.File]::WriteAllLines($solution, @([IO.File]::ReadAllLines($solution) | Where-Object { $_ -notmatch 'DemoRecords' }), [Text.UTF8Encoding]::new($false))
     Rename-TreeIdentity $staging $ApplicationId
     $consumerWebSettings = Join-Path $staging "src/$ApplicationId.Web/appsettings.json"
-    $settings = [IO.File]::ReadAllText($consumerWebSettings).Replace('https://localhost:44303', $uri.GetLeftPart([UriPartial]::Authority))
+    $rootUrl = $uri.GetLeftPart([UriPartial]::Authority)
+    $settings = [IO.File]::ReadAllText($consumerWebSettings).Replace('https://localhost:44303', $rootUrl)
     [IO.File]::WriteAllText($consumerWebSettings, $settings, [Text.UTF8Encoding]::new($false))
+    $migratorSettings = Join-Path $staging "src/$ApplicationId.DbMigrator/appsettings.json"
+    $migrator = Get-Content -LiteralPath $migratorSettings -Raw | ConvertFrom-Json
+    $migrator.OpenIddict.Applications."${ApplicationId}_Web".RootUrl = $rootUrl
+    $migrator.OpenIddict.Applications."${ApplicationId}_Swagger".RootUrl = $rootUrl
+    $migrator | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $migratorSettings -Encoding utf8
+    $launchSettings = Join-Path $staging "src/$ApplicationId.Web/Properties/launchSettings.json"
+    $launch = Get-Content -LiteralPath $launchSettings -Raw | ConvertFrom-Json
+    $launch.iisSettings.iisExpress.applicationUrl = "$rootUrl/"
+    $launch.iisSettings.iisExpress.sslPort = $uri.Port
+    $launch.profiles.'IIS Express' | Add-Member -NotePropertyName applicationUrl -NotePropertyValue "$rootUrl/" -Force
+    $launch.profiles."$ApplicationId.Web".applicationUrl = "$rootUrl/"
+    $launch | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $launchSettings -Encoding utf8
+    Set-GeneratedConsumerReadme -Path (Join-Path $staging 'README.md') -Id $ApplicationId
     $leftovers = @(Get-ChildItem -LiteralPath $staging -Recurse -File | Where-Object {
         $relative = $_.FullName.Substring($staging.Length).TrimStart([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
         $relative -match '(?i)(^|[\\/])Migrations([\\/]|$)' -or $relative -match '(?i)(^|[\\/])samples[\\/]ContosoAdmin\.DemoRecords'

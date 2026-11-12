@@ -38,6 +38,19 @@ try {
     Assert (-not (Test-Path -LiteralPath (Join-Path $consumer '.git'))) 'Consumer inherited Git metadata.'
     Assert (-not (Test-Path -LiteralPath (Join-Path $consumer 'samples'))) 'Consumer retained sample directory.'
     Assert (-not (Test-Path -LiteralPath (Join-Path $consumer 'src/ContosoAdmin.EntityFrameworkCore/Migrations'))) 'Consumer retained migrations.'
+    $webSettings = Get-Content -LiteralPath (Join-Path $consumer 'src/ContosoAdmin.Web/appsettings.json') -Raw | ConvertFrom-Json
+    Assert ($webSettings.App.SelfUrl -eq 'https://localhost:44320') 'Generated Web App:SelfUrl does not match RootUrl.'
+    $migratorSettings = Get-Content -LiteralPath (Join-Path $consumer 'src/ContosoAdmin.DbMigrator/appsettings.json') -Raw | ConvertFrom-Json
+    Assert ($migratorSettings.OpenIddict.Applications.ContosoAdmin_Web.RootUrl -eq 'https://localhost:44320') 'Generated Web OpenIddict RootUrl does not match RootUrl.'
+    Assert ($migratorSettings.OpenIddict.Applications.ContosoAdmin_Swagger.RootUrl -eq 'https://localhost:44320') 'Generated Swagger OpenIddict RootUrl does not match RootUrl.'
+    $launch = Get-Content -LiteralPath (Join-Path $consumer 'src/ContosoAdmin.Web/Properties/launchSettings.json') -Raw | ConvertFrom-Json
+    Assert ($launch.iisSettings.iisExpress.applicationUrl -eq 'https://localhost:44320/') 'Generated IIS Express URL does not match RootUrl.'
+    Assert ($launch.iisSettings.iisExpress.sslPort -eq 44320) 'Generated IIS Express SSL port does not match RootUrl.'
+    Assert ($launch.profiles.'IIS Express'.applicationUrl -eq 'https://localhost:44320/') 'Generated IIS Express profile URL does not match RootUrl.'
+    Assert ($launch.profiles.'ContosoAdmin.Web'.applicationUrl -eq 'https://localhost:44320/') 'Generated project profile URL does not match RootUrl.'
+    $consumerReadme = Get-Content -LiteralPath (Join-Path $consumer 'README.md') -Raw
+    Assert ($consumerReadme -match 'separate, explicitly authorized database operation') 'Generated README does not describe the separate database authorization.'
+    Assert ($consumerReadme -match 'can both migrate and seed persistent data') 'Generated README does not describe DbMigrator persistence behavior.'
     & (Join-Path $PSScriptRoot 'verify-consumer.ps1') -ConsumerRoot $consumer -ApplicationId ContosoAdmin
     Assert ($LASTEXITCODE -eq 0) 'H4-01 structural validator failed.'
     & (Join-Path $PSScriptRoot 'new-admin-module.ps1') -ConsumerRoot $consumer -ApplicationId ContosoAdmin -ModuleName Products -EntityName Product -RouteSegment products
