@@ -4,6 +4,8 @@ Học is a developer-oriented ABP 10 MVC/Razor foundation: a layered modular mon
 
 This repository is source-first. It does not publish a Học runtime package, consumer generator, or automatic upgrade channel. To derive an independent Admin consumer from a pinned source revision, follow the [consumer bootstrap procedure](docs/productization/consumer-bootstrap-v1.md) and its [compatibility policy](docs/productization/compatibility-v1.md).
 
+To add a fixed-shape six-project MVC/Razor CRUD module to an already-derived consumer, use the [admin module starter v1](docs/productization/module-starter-v1.md). It is source-based, dry-run by default, and leaves consumer composition and migration work explicit.
+
 ## Prerequisites
 
 - The exact .NET SDK in [global.json](global.json): `10.0.403`.
