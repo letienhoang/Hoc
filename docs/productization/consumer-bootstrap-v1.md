@@ -24,17 +24,20 @@ git checkout 6a8605a63d18d35767f520d57d33193f6d15aa29
 git remote remove origin
 git checkout --orphan consumer-initial
 git read-tree --empty
-git add -- LICENSE README.md docs src samples test Hoc.slnx global.json
+git add -- .gitattributes .gitignore common.props global.json Hoc.slnx LICENSE NOTICE NuGet.Config README.md THIRD-PARTY-NOTICES.md docs src samples test
 git diff --cached --name-status
 git diff --cached --check
 git commit -m "chore: establish ContosoAdmin consumer baseline"
 ```
 
 `git read-tree --empty` clears the inherited index while leaving the working tree
-unchanged. The subsequent named-path add therefore stages only the reviewed
-consumer source and retained license/documentation paths. Add any additional
-retained `LICENSE` or `NOTICE` path explicitly after reviewing it; never run
-broad staging blindly.
+unchanged. The subsequent explicit path list retains the build and package
+inputs (`common.props`, `global.json`, `Hoc.slnx`, and `NuGet.Config`), source
+control policy (`.gitattributes` and `.gitignore`), and reviewed license and
+notice files (`LICENSE`, `NOTICE`, and `THIRD-PARTY-NOTICES.md`) alongside the
+consumer source and documentation. Review other root files before adding them;
+do not stage `appsettings.secrets.json`, `.tools`, logs, reports, or generated
+client/build output. Never run broad staging blindly.
 
 ## B. Establish one application identity
 

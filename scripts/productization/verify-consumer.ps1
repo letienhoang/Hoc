@@ -43,6 +43,7 @@ function Remove-CSharpComments([string]$Content) {
     $builder = [Text.StringBuilder]::new()
     $state = 'Code'
     $verbatim = $false
+    $backslash = [char]92
     for ($index = 0; $index -lt $Content.Length; $index++) {
         $character = $Content[$index]
         $next = if ($index + 1 -lt $Content.Length) { $Content[$index + 1] } else { [char]0 }
@@ -58,13 +59,13 @@ function Remove-CSharpComments([string]$Content) {
         if ($state -eq 'String') {
             [void]$builder.Append($character)
             if ($verbatim -and $character -eq '"' -and $next -eq '"') { [void]$builder.Append($next); $index++ }
-            elseif (-not $verbatim -and $character -eq '\\') { if ($index + 1 -lt $Content.Length) { [void]$builder.Append($next); $index++ } }
+            elseif (-not $verbatim -and $character -eq $backslash) { if ($index + 1 -lt $Content.Length) { [void]$builder.Append($next); $index++ } }
             elseif ($character -eq '"') { $state = 'Code' }
             continue
         }
         if ($state -eq 'Char') {
             [void]$builder.Append($character)
-            if ($character -eq '\\') { if ($index + 1 -lt $Content.Length) { [void]$builder.Append($next); $index++ } }
+            if ($character -eq $backslash) { if ($index + 1 -lt $Content.Length) { [void]$builder.Append($next); $index++ } }
             elseif ($character -eq "'") { $state = 'Code' }
             continue
         }
@@ -140,7 +141,7 @@ $solutionProjectPaths = [System.Collections.Generic.HashSet[string]]::new([Strin
 if (Test-Path -LiteralPath $solutionPath -PathType Leaf) {
     $solutionXml = Get-XmlDocument $solutionPath 'Expected solution'
     if ($null -ne $solutionXml) {
-        foreach ($solutionProject in @($solutionXml.SelectNodes('/Solution/Project'))) {
+        foreach ($solutionProject in @($solutionXml.SelectNodes('/Solution//Project'))) {
             $relativeProjectPath = [string]$solutionProject.GetAttribute('Path')
             if ([string]::IsNullOrWhiteSpace($relativeProjectPath)) {
                 Add-Fail 'Expected solution contains a project entry without a Path.'

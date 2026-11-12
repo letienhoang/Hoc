@@ -20,7 +20,7 @@ function Write-Utf8File([string]$Path, [string]$Content) {
 
 function New-ValidConsumer([string]$Path) {
     Write-Utf8File (Join-Path $Path 'global.json') '{ "sdk": { "version": "10.0.403" } }'
-    Write-Utf8File (Join-Path $Path 'ContosoAdmin.slnx') '<Solution><Project Path="src/ContosoAdmin.Web/ContosoAdmin.Web.csproj" /></Solution>'
+    Write-Utf8File (Join-Path $Path 'ContosoAdmin.slnx') '<Solution><Folder Name="/src/"><Project Path="src/ContosoAdmin.Web/ContosoAdmin.Web.csproj" /></Folder></Solution>'
     Write-Utf8File (Join-Path $Path 'src/ContosoAdmin.Web/ContosoAdmin.Web.csproj') @'
 <Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup><RootNamespace>ContosoAdmin.Web</RootNamespace></PropertyGroup><ItemGroup><PackageReference Include="Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite" Version="5.7.0" /><PackageReference Include="Volo.Abp.Account.Web.OpenIddict" Version="10.7.0" /></ItemGroup></Project>
 '@
@@ -52,10 +52,25 @@ try {
     $valid = Join-Path $testRoot 'valid'; New-ValidConsumer $valid; Invoke-Case 'valid consumer structure' $valid $true
     $comment = Join-Path $testRoot 'comment-only-demo-records'; New-ValidConsumer $comment; Write-Utf8File (Join-Path $comment 'src/ContosoAdmin.Web/Comment.cs') @'
 namespace ContosoAdmin.Web;
-// DemoRecords is retained here only as historical review context.
-/* Hoc.DemoRecords must not be treated as an executable reference in comments. */
-public static class CommentOnly { }
+public static class CommentOnly
+{
+    private const string EscapedQuote = "historical \"quoted\" context";
+    private const char EscapedCharacter = '\'';
+    // DemoRecords is retained here only as historical review context.
+    /* Hoc.DemoRecords must not be treated as an executable reference in comments. */
+}
 '@; Invoke-Case 'comment-only DemoRecords mention' $comment $true
+    $escapedQuoteStale = Join-Path $testRoot 'escaped-quote-stale-reference'; New-ValidConsumer $escapedQuoteStale; Write-Utf8File (Join-Path $escapedQuoteStale 'src/ContosoAdmin.Web/Stale.cs') @'
+namespace ContosoAdmin.Web;
+public static class StaleReference
+{
+    private const string EscapedQuote = "historical \"quoted\" context";
+    private const char EscapedCharacter = '\'';
+    // legitimate historical comment follows an escaped quote
+    // DemoRecords is retained only as provenance.
+}
+using Hoc.DemoRecords;
+'@; Invoke-Case 'escaped quote preserves stale executable detection' $escapedQuoteStale $false
     $staleDemo = Join-Path $testRoot 'stale-demo'; New-ValidConsumer $staleDemo; Write-Utf8File (Join-Path $staleDemo 'src/ContosoAdmin.Web/Stale.cs') 'using Hoc.DemoRecords;'; Invoke-Case 'stale DemoRecords runtime reference' $staleDemo $false
     $missingSolution = Join-Path $testRoot 'missing-solution-reference'; New-ValidConsumer $missingSolution; Write-Utf8File (Join-Path $missingSolution 'src/ContosoAdmin.Web/Unlisted.csproj') '<Project Sdk="Microsoft.NET.Sdk" />'; Invoke-Case 'project missing from solution' $missingSolution $false
     $missingProject = Join-Path $testRoot 'missing-project-reference'; New-ValidConsumer $missingProject; Write-Utf8File (Join-Path $missingProject 'src/ContosoAdmin.Web/ContosoAdmin.Web.csproj') '<Project><PropertyGroup><RootNamespace>ContosoAdmin.Web</RootNamespace></PropertyGroup><ItemGroup><ProjectReference Include="../Missing/DoesNotExist.csproj" /><PackageReference Include="Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite" Version="5.7.0" /><PackageReference Include="Volo.Abp.Account.Web.OpenIddict" Version="10.7.0" /></ItemGroup></Project>'; Invoke-Case 'missing project reference' $missingProject $false
