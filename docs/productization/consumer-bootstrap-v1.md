@@ -4,7 +4,7 @@ This is a deterministic, manual source-based procedure for deriving an independe
 
 ## Baseline and tools
 
-Select one Học commit before copying. H4-01 was authored against `letienhoang/Hoc` commit `6a8605a63d18d35767f520d57d33193f6d15aa29`, with `global.json` SDK `10.0.403`, ABP `10.7.0`, and LeptonX Lite `5.7.0`. Record a different source SHA if a later baseline is intentionally selected; do not call it compatible until it is reviewed under the compatibility policy.
+Select one Học commit before copying. H4-01 uses consumer source commit `6a8605a63d18d35767f520d57d33193f6d15aa29`, with `global.json` SDK `10.0.403`, ABP `10.7.0`, and LeptonX Lite `5.7.0`. The read-only validator is taken from the separate Học tooling checkout at H4-01 tooling commit `cd7c8c06b5e8f35e5b9b4d02eef5380fe80a1adc`. Record different source and tooling SHAs if later revisions are intentionally selected; do not call them compatible until they are reviewed under the compatibility policy.
 
 Use the pinned SDK. Node.js 20.11+ is needed only to restore web client assets. No database, secret, certificate, or network connection is required for the structural validator.
 
@@ -80,11 +80,14 @@ Keep real passwords, client secrets, tokens, and certificate passwords out of tr
 
 ## F. Validate and hand off
 
-Run structural validation before restore:
+Run structural validation before restore. Run the validator from a separate, clean Học tooling checkout containing the recorded tooling SHA; do not expect the validator script to exist in the consumer checkout:
 
 ```powershell
+$consumerRoot = 'C:\work\ContosoAdmin'
+$hocToolingRoot = 'C:\work\Hoc-H4-01-tooling'
+Set-Location $hocToolingRoot
 pwsh ./scripts/productization/verify-consumer.ps1 `
-  -ConsumerRoot C:\work\ContosoAdmin -ApplicationId ContosoAdmin
+  -ConsumerRoot $consumerRoot -ApplicationId ContosoAdmin
 ```
 
 The validator is read-only: it has no network, database, migration, host-start, or automatic-renaming behavior. It checks solution/project identity, scoped stale sample references, inherited migration artifacts, consumer OpenIddict identity, inspectable SDK/package baselines, and known secret/certificate artifacts. A static PASS is not runtime proof.
@@ -102,7 +105,9 @@ Restore client libraries first when Web/TestServer needs ignored ABP assets. Sto
 ## H4-01 temporary exercise record
 
 H4-01 exercised this procedure with synthetic `ContosoAdmin`, copied from
-`6a8605a63d18d35767f520d57d33193f6d15aa29`. Start/end were
+consumer source commit `6a8605a63d18d35767f520d57d33193f6d15aa29`, using the
+separate Học tooling checkout at validator/tooling commit
+`cd7c8c06b5e8f35e5b9b4d02eef5380fe80a1adc`. Start/end were
 `2026-11-12T10:14:21+07:00` / `2026-11-12T10:20:14+07:00`, for 5 minutes 53
 seconds including rework. The temporary consumer had an independent local Git
 root commit (`f164466ec599432772ffd3acffa6eafc805d6f26`) and no remote.
