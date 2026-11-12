@@ -2,7 +2,7 @@
 
 Học is a developer-oriented ABP 10 MVC/Razor foundation: a layered modular monolith with PostgreSQL/EF Core, Identity, OpenIddict, permissions, auditing, localization, and the LeptonX Lite theme. `DemoRecords` is the repository's reference sample feature; it is not a required feature of an independently derived consumer.
 
-This repository is source-first. It does not publish a Học runtime package, consumer generator, or automatic upgrade channel. To derive an independent Admin consumer from a pinned source revision, follow the [consumer bootstrap procedure](docs/productization/consumer-bootstrap-v1.md) and its [compatibility policy](docs/productization/compatibility-v1.md).
+This repository is source-first. It does not publish a Học runtime package or automatic upgrade channel. To derive an independent Admin consumer from the supported pinned source revision, use the [automated consumer bootstrap](docs/productization/automated-consumer-bootstrap-v1.md), with the [manual bootstrap procedure](docs/productization/consumer-bootstrap-v1.md) and [compatibility policy](docs/productization/compatibility-v1.md) as its boundary and review guidance.
 
 To add a fixed-shape six-project MVC/Razor CRUD module to an already-derived consumer, use the [admin module starter v1](docs/productization/module-starter-v1.md). It is source-based, dry-run by default, and leaves consumer composition and migration work explicit.
 

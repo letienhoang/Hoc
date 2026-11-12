@@ -38,6 +38,10 @@ jobs:
         shell: pwsh
         run: ./scripts/productization/test-new-admin-module.ps1
 
+      - name: Consumer bootstrap self-tests
+        shell: pwsh
+        run: ./scripts/productization/test-new-consumer.ps1
+
       # Two existing project files include these ignored paths with CopyToOutputDirectory=Always.
       # Use secret-free placeholders solely to satisfy clean-runner MSBuild item copies.
       - name: Prepare empty local config placeholders
