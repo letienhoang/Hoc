@@ -39,6 +39,50 @@ function Get-InspectableFiles([string]$Root, [string[]]$Extensions) {
     }
 }
 
+function Remove-CSharpComments([string]$Content) {
+    $builder = [Text.StringBuilder]::new()
+    $state = 'Code'
+    $verbatim = $false
+    for ($index = 0; $index -lt $Content.Length; $index++) {
+        $character = $Content[$index]
+        $next = if ($index + 1 -lt $Content.Length) { $Content[$index + 1] } else { [char]0 }
+        if ($state -eq 'LineComment') {
+            if ($character -eq "`r" -or $character -eq "`n") { [void]$builder.Append($character); $state = 'Code' }
+            continue
+        }
+        if ($state -eq 'BlockComment') {
+            if ($character -eq '*' -and $next -eq '/') { [void]$builder.Append(' '); $index++; $state = 'Code' }
+            elseif ($character -eq "`r" -or $character -eq "`n") { [void]$builder.Append($character) }
+            continue
+        }
+        if ($state -eq 'String') {
+            [void]$builder.Append($character)
+            if ($verbatim -and $character -eq '"' -and $next -eq '"') { [void]$builder.Append($next); $index++ }
+            elseif (-not $verbatim -and $character -eq '\\') { if ($index + 1 -lt $Content.Length) { [void]$builder.Append($next); $index++ } }
+            elseif ($character -eq '"') { $state = 'Code' }
+            continue
+        }
+        if ($state -eq 'Char') {
+            [void]$builder.Append($character)
+            if ($character -eq '\\') { if ($index + 1 -lt $Content.Length) { [void]$builder.Append($next); $index++ } }
+            elseif ($character -eq "'") { $state = 'Code' }
+            continue
+        }
+        if ($character -eq '/' -and $next -eq '/') { $index++; $state = 'LineComment'; continue }
+        if ($character -eq '/' -and $next -eq '*') { $index++; $state = 'BlockComment'; continue }
+        if ($character -eq '@' -and $next -eq '"') { [void]$builder.Append($character); [void]$builder.Append($next); $index++; $verbatim = $true; $state = 'String'; continue }
+        if ($character -eq '"') { [void]$builder.Append($character); $verbatim = $false; $state = 'String'; continue }
+        if ($character -eq "'") { [void]$builder.Append($character); $state = 'Char'; continue }
+        [void]$builder.Append($character)
+    }
+    return $builder.ToString()
+}
+
+function Get-XmlDocument([string]$Path, [string]$Description) {
+    try { return [xml](Get-Content -LiteralPath $Path -Raw) }
+    catch { Add-Fail "$Description is malformed XML."; return $null }
+}
+
 try {
     $resolvedRoot = (Resolve-Path -LiteralPath $ConsumerRoot -ErrorAction Stop).Path
 }
@@ -91,13 +135,61 @@ else {
     Add-Fail 'No project RootNamespace or AssemblyName starts with the expected application identity.'
 }
 
+$solutionPath = Join-Path $resolvedRoot $expectedSolution
+$solutionProjectPaths = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+if (Test-Path -LiteralPath $solutionPath -PathType Leaf) {
+    $solutionXml = Get-XmlDocument $solutionPath 'Expected solution'
+    if ($null -ne $solutionXml) {
+        foreach ($solutionProject in @($solutionXml.SelectNodes('/Solution/Project'))) {
+            $relativeProjectPath = [string]$solutionProject.GetAttribute('Path')
+            if ([string]::IsNullOrWhiteSpace($relativeProjectPath)) {
+                Add-Fail 'Expected solution contains a project entry without a Path.'
+                continue
+            }
+            $normalizedProjectPath = $relativeProjectPath.Replace('/', '\')
+            [void]$solutionProjectPaths.Add($normalizedProjectPath)
+            if (-not (Test-Path -LiteralPath (Join-Path $resolvedRoot $normalizedProjectPath) -PathType Leaf)) {
+                Add-Fail "Solution project reference '$relativeProjectPath' does not resolve."
+            }
+        }
+    }
+}
+
+foreach ($projectFile in $projectFiles) {
+    $projectRelativePath = (Get-RelativePath $projectFile.FullName $resolvedRoot).Replace('/', '\')
+    if (-not $solutionProjectPaths.Contains($projectRelativePath)) {
+        Add-Fail "Project '$projectRelativePath' is not referenced by the expected solution."
+    }
+    $projectXml = Get-XmlDocument $projectFile.FullName "Project '$projectRelativePath'"
+    if ($null -eq $projectXml) { continue }
+    foreach ($projectReference in @($projectXml.SelectNodes('//ProjectReference'))) {
+        $include = [string]$projectReference.Include
+        if ([string]::IsNullOrWhiteSpace($include)) {
+            Add-Fail "Project '$projectRelativePath' contains a ProjectReference without Include."
+            continue
+        }
+        $referencePath = [IO.Path]::GetFullPath((Join-Path $projectFile.DirectoryName $include))
+        $referenceRelativePath = Get-RelativePath $referencePath $resolvedRoot
+        if (-not (Test-Path -LiteralPath $referencePath -PathType Leaf)) {
+            Add-Fail "Project reference '$include' in '$projectRelativePath' does not resolve."
+        }
+        elseif (-not $solutionProjectPaths.Contains($referenceRelativePath)) {
+            Add-Fail "Project reference '$include' in '$projectRelativePath' is missing from the expected solution."
+        }
+        if ($include -match '(?i)(^|[\\/])Hoc\.') {
+            Add-Fail "Stale Hoc.* project dependency '$include' appears in '$projectRelativePath'."
+        }
+    }
+}
+
 $sourceFiles = Get-InspectableFiles $resolvedRoot @('.cs', '.csproj', '.json', '.props', '.targets', '.slnx')
 $staleReferences = @(foreach ($file in $sourceFiles) {
     $content = Get-Content -LiteralPath $file.FullName -Raw
-    if ($content -match '(?im)^\s*(using|namespace)\s+Hoc(\.|;)' -or
-        $content -match '(?is)<(RootNamespace|AssemblyName)>\s*Hoc([.<])' -or
-        $content -match '(?is)<ProjectReference[^>]*(Hoc\.DemoRecords|DemoRecords)' -or
-        $content -match '(?i)Hoc\.DemoRecords|\bDemoRecords\b') {
+    $scannableContent = if ($file.Extension -ieq '.cs') { Remove-CSharpComments $content } else { $content }
+    if ($scannableContent -match '(?im)^\s*(using|namespace)\s+Hoc(\.|;)' -or
+        $scannableContent -match '(?is)<(RootNamespace|AssemblyName)>\s*Hoc([.<])' -or
+        $scannableContent -match '(?is)<ProjectReference[^>]*(Hoc\.|DemoRecords)' -or
+        $scannableContent -match '(?i)Hoc\.DemoRecords|\bDemoRecords\b') {
         Get-RelativePath $file.FullName $resolvedRoot
     }
 })
@@ -134,13 +226,13 @@ if ($identityText -match [regex]::Escape($ApplicationId)) {
 else {
     Add-Fail 'Expected application identity is absent from inspectable source and configuration.'
 }
-if ($identityText -match '(?i)OpenIddict' -and $identityText -match [regex]::Escape("${ApplicationId}_Web")) {
-    Add-Pass 'OpenIddict configuration/source includes the consumer Web client identity.'
+if ($identityText -match '(?i)OpenIddict' -and $identityText -match [regex]::Escape("${ApplicationId}_Web") -and $identityText -match [regex]::Escape("${ApplicationId}_Swagger")) {
+    Add-Pass 'OpenIddict configuration/source includes the consumer Web and Swagger client identities.'
 }
 else {
-    Add-Fail "OpenIddict consumer Web identity '${ApplicationId}_Web' was not found."
+    Add-Fail "OpenIddict consumer Web and Swagger identities '${ApplicationId}_Web' and '${ApplicationId}_Swagger' were not both found."
 }
-if ($identityText -match '(?i)Hoc_Web|Hoc_Swagger|AddAudiences\(\s*[\"'']Hoc[\"'']') {
+if ($identityText -match '(?i)Hoc_Web|Hoc_Swagger|AddAudiences\(\s*[\"'']Hoc[\"'']|\"(?:ClientId|ClientSecret|Audience|Resource|Scope|Name)\"\s*:\s*\"Hoc(?:_|\"|$)') {
     Add-Fail 'OpenIddict source/configuration still contains a Hoc application identity.'
 }
 else {

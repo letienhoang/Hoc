@@ -23,11 +23,18 @@ Set-Location C:\work\ContosoAdmin
 git checkout 6a8605a63d18d35767f520d57d33193f6d15aa29
 git remote remove origin
 git checkout --orphan consumer-initial
+git read-tree --empty
 git add -- LICENSE README.md docs src samples test Hoc.slnx global.json
+git diff --cached --name-status
+git diff --cached --check
 git commit -m "chore: establish ContosoAdmin consumer baseline"
 ```
 
-Use named paths or a reviewed equivalent when making the initial consumer commit. Never run broad staging blindly.
+`git read-tree --empty` clears the inherited index while leaving the working tree
+unchanged. The subsequent named-path add therefore stages only the reviewed
+consumer source and retained license/documentation paths. Add any additional
+retained `LICENSE` or `NOTICE` path explicitly after reviewing it; never run
+broad staging blindly.
 
 ## B. Establish one application identity
 

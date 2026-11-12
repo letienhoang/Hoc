@@ -25,7 +25,7 @@ function New-ValidConsumer([string]$Path) {
 <Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup><RootNamespace>ContosoAdmin.Web</RootNamespace></PropertyGroup><ItemGroup><PackageReference Include="Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite" Version="5.7.0" /><PackageReference Include="Volo.Abp.Account.Web.OpenIddict" Version="10.7.0" /></ItemGroup></Project>
 '@
     Write-Utf8File (Join-Path $Path 'src/ContosoAdmin.Web/appsettings.json') @'
-{ "App": { "Name": "ContosoAdmin" }, "OpenIddict": { "Applications": { "ContosoAdmin_Web": { "ClientId": "ContosoAdmin_Web", "RootUrl": "https://localhost:44303" } } } }
+{ "App": { "Name": "ContosoAdmin" }, "OpenIddict": { "Applications": { "ContosoAdmin_Web": { "ClientId": "ContosoAdmin_Web", "RootUrl": "https://localhost:44303" }, "ContosoAdmin_Swagger": { "ClientId": "ContosoAdmin_Swagger", "RootUrl": "https://localhost:44303" } } } }
 '@
     Write-Utf8File (Join-Path $Path 'src/ContosoAdmin.Web/ConsumerIdentity.cs') @'
 namespace ContosoAdmin.Web;
@@ -50,10 +50,20 @@ try {
     [IO.Directory]::CreateDirectory($testRoot) | Out-Null
 
     $valid = Join-Path $testRoot 'valid'; New-ValidConsumer $valid; Invoke-Case 'valid consumer structure' $valid $true
+    $comment = Join-Path $testRoot 'comment-only-demo-records'; New-ValidConsumer $comment; Write-Utf8File (Join-Path $comment 'src/ContosoAdmin.Web/Comment.cs') @'
+namespace ContosoAdmin.Web;
+// DemoRecords is retained here only as historical review context.
+/* Hoc.DemoRecords must not be treated as an executable reference in comments. */
+public static class CommentOnly { }
+'@; Invoke-Case 'comment-only DemoRecords mention' $comment $true
     $staleDemo = Join-Path $testRoot 'stale-demo'; New-ValidConsumer $staleDemo; Write-Utf8File (Join-Path $staleDemo 'src/ContosoAdmin.Web/Stale.cs') 'using Hoc.DemoRecords;'; Invoke-Case 'stale DemoRecords runtime reference' $staleDemo $false
+    $missingSolution = Join-Path $testRoot 'missing-solution-reference'; New-ValidConsumer $missingSolution; Write-Utf8File (Join-Path $missingSolution 'src/ContosoAdmin.Web/Unlisted.csproj') '<Project Sdk="Microsoft.NET.Sdk" />'; Invoke-Case 'project missing from solution' $missingSolution $false
+    $missingProject = Join-Path $testRoot 'missing-project-reference'; New-ValidConsumer $missingProject; Write-Utf8File (Join-Path $missingProject 'src/ContosoAdmin.Web/ContosoAdmin.Web.csproj') '<Project><PropertyGroup><RootNamespace>ContosoAdmin.Web</RootNamespace></PropertyGroup><ItemGroup><ProjectReference Include="../Missing/DoesNotExist.csproj" /><PackageReference Include="Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite" Version="5.7.0" /><PackageReference Include="Volo.Abp.Account.Web.OpenIddict" Version="10.7.0" /></ItemGroup></Project>'; Invoke-Case 'missing project reference' $missingProject $false
+    $staleProject = Join-Path $testRoot 'stale-hoc-project-dependency'; New-ValidConsumer $staleProject; Write-Utf8File (Join-Path $staleProject 'src/ContosoAdmin.Web/ContosoAdmin.Web.csproj') '<Project><PropertyGroup><RootNamespace>ContosoAdmin.Web</RootNamespace></PropertyGroup><ItemGroup><ProjectReference Include="../Hoc.Legacy/Hoc.Legacy.csproj" /><PackageReference Include="Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite" Version="5.7.0" /><PackageReference Include="Volo.Abp.Account.Web.OpenIddict" Version="10.7.0" /></ItemGroup></Project>'; Invoke-Case 'stale Hoc project dependency' $staleProject $false
     $mismatch = Join-Path $testRoot 'mismatched-identity'; New-ValidConsumer $mismatch; Write-Utf8File (Join-Path $mismatch 'src/ContosoAdmin.Web/ContosoAdmin.Web.csproj') '<Project><PropertyGroup><RootNamespace>OtherAdmin.Web</RootNamespace></PropertyGroup><ItemGroup><PackageReference Include="Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite" Version="5.7.0" /><PackageReference Include="Volo.Abp.Account.Web.OpenIddict" Version="10.7.0" /></ItemGroup></Project>'; Invoke-Case 'mismatched application identity' $mismatch $false
     $migration = Join-Path $testRoot 'inherited-migration'; New-ValidConsumer $migration; Write-Utf8File (Join-Path $migration 'src/ContosoAdmin.EntityFrameworkCore/Migrations/HocDbContextModelSnapshot.cs') 'namespace ContosoAdmin; public class HocDbContextModelSnapshot { }'; Invoke-Case 'inherited Hoc migration artifact' $migration $false
     $openid = Join-Path $testRoot 'openid-identity'; New-ValidConsumer $openid; Write-Utf8File (Join-Path $openid 'src/ContosoAdmin.Web/appsettings.json') '{ "OpenIddict": { "Applications": { "Hoc_Web": { "ClientId": "Hoc_Web" } } } }'; Invoke-Case 'incorrect OpenIddict identity' $openid $false
+    $missingSwagger = Join-Path $testRoot 'missing-swagger-identity'; New-ValidConsumer $missingSwagger; Write-Utf8File (Join-Path $missingSwagger 'src/ContosoAdmin.Web/appsettings.json') '{ "OpenIddict": { "Applications": { "ContosoAdmin_Web": { "ClientId": "ContosoAdmin_Web" } } } }'; Invoke-Case 'missing OpenIddict Swagger identity' $missingSwagger $false
     $sdk = Join-Path $testRoot 'sdk-mismatch'; New-ValidConsumer $sdk; Write-Utf8File (Join-Path $sdk 'global.json') '{ "sdk": { "version": "9.0.100" } }'; Invoke-Case 'SDK baseline mismatch' $sdk $false
     $package = Join-Path $testRoot 'package-mismatch'; New-ValidConsumer $package; Write-Utf8File (Join-Path $package 'src/ContosoAdmin.Web/ContosoAdmin.Web.csproj') '<Project><PropertyGroup><RootNamespace>ContosoAdmin.Web</RootNamespace></PropertyGroup><ItemGroup><PackageReference Include="Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite" Version="5.6.0" /><PackageReference Include="Volo.Abp.Account.Web.OpenIddict" Version="10.6.0" /></ItemGroup></Project>'; Invoke-Case 'package baseline mismatch' $package $false
     $secret = Join-Path $testRoot 'secret-artifact'; New-ValidConsumer $secret; Write-Utf8File (Join-Path $secret 'src/ContosoAdmin.Web/openiddict.pfx') 'synthetic-only'; Invoke-Case 'secret or certificate artifact' $secret $false
