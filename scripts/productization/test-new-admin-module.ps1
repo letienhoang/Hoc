@@ -9,16 +9,21 @@ $generator = Join-Path $PSScriptRoot 'new-admin-module.ps1'
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ("hoc-h4-02-" + [guid]::NewGuid().ToString('N'))
 
 function Assert-True([bool] $Condition, [string] $Message) { if (-not $Condition) { throw "Assertion failed: $Message" } }
-function Invoke-Generator([hashtable] $Parameters, [bool] $ExpectSuccess) {
-    $failed = $false
-    try { & $generator @Parameters } catch { $failed = $true }
+function Invoke-Generator([hashtable] $Parameters, [bool] $ExpectSuccess, [string] $ExpectedFailureReason = '') {
+    $failure = $null
+    try { & $generator @Parameters } catch { $failure = $_ }
+    $failed = $null -ne $failure
     if ($ExpectSuccess -and $failed) { throw "Generator unexpectedly failed: $($Parameters | Out-String)" }
     if (-not $ExpectSuccess -and -not $failed) { throw "Generator unexpectedly succeeded: $($Parameters | Out-String)" }
+    if (-not $ExpectSuccess -and -not [string]::IsNullOrWhiteSpace($ExpectedFailureReason)) {
+        Assert-True ($failure.Exception.Message -like "*$ExpectedFailureReason*") "Generator failed for an unexpected reason. Expected '$ExpectedFailureReason'; actual '$($failure.Exception.Message)'"
+    }
+    return $failure
 }
-function New-Fixture([string] $Name = 'ContosoAdmin') {
+function New-Fixture([string] $Name = 'ContosoAdmin', [string] $ApplicationId = 'ContosoAdmin') {
     $root = Join-Path $testRoot $Name
     New-Item -ItemType Directory -Path $root -Force | Out-Null
-    Set-Content -LiteralPath (Join-Path $root "$Name.slnx") -Value '<Solution />' -Encoding utf8NoBOM
+    Set-Content -LiteralPath (Join-Path $root "$ApplicationId.slnx") -Value '<Solution />' -Encoding utf8NoBOM
     Set-Content -LiteralPath (Join-Path $root 'common.props') -Value '<Project />' -Encoding utf8NoBOM
     return $root
 }
@@ -74,14 +79,14 @@ try {
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $incomplete 'modules'))) 'Failed preflight left generated output.'
     $failedCopy = New-Fixture 'FailedCopy'
     $failedCopyParameters = @{} + $generatorParameters; $failedCopyParameters.ConsumerRoot = $failedCopy; $failedCopyParameters.TestFailAfterFileCopies = 1; $failedCopyParameters.Apply = $true
-    Invoke-Generator -Parameters $failedCopyParameters -ExpectSuccess $false
-    Assert-True (-not (Test-Path -LiteralPath (Join-Path $failedCopy 'modules'))) 'Interrupted copy left generated output.'
+    Invoke-Generator -Parameters $failedCopyParameters -ExpectSuccess $false -ExpectedFailureReason 'Test fault injected after copying a template file.'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $failedCopy 'modules'))) 'Interrupted copy left staging or generated module output.'
     $existingOutput = New-Fixture 'ExistingOutput'
     $existingModule = Join-Path $existingOutput 'modules\ContosoAdmin.Products.Domain'; New-Item -ItemType Directory -Path $existingModule -Force | Out-Null
-    $sentinel = Join-Path $existingModule 'pre-existing.txt'; Set-Content -LiteralPath $sentinel -Value 'do not delete' -Encoding utf8NoBOM
+    $sentinel = Join-Path $existingModule 'pre-existing.txt'; [IO.File]::WriteAllText($sentinel, 'do not delete', [Text.UTF8Encoding]::new($false))
     $existingParameters = @{} + $generatorParameters; $existingParameters.ConsumerRoot = $existingOutput; $existingParameters.Apply = $true
-    Invoke-Generator -Parameters $existingParameters -ExpectSuccess $false
-    Assert-True ((Get-Content -LiteralPath $sentinel -Raw).Trim() -eq 'do not delete') 'Failure cleanup deleted pre-existing consumer output.'
+    Invoke-Generator -Parameters $existingParameters -ExpectSuccess $false -ExpectedFailureReason 'Output already exists; refusing to overwrite:'
+    Assert-True ([IO.File]::ReadAllText($sentinel) -ceq 'do not delete') 'Failure cleanup changed the exact pre-existing sentinel contents.'
     Write-Host 'H4-02 generator self-tests passed.'
 }
 finally {
