@@ -88,6 +88,7 @@ $hocToolingRoot = 'C:\work\Hoc-H4-01-tooling'
 Set-Location $hocToolingRoot
 pwsh ./scripts/productization/verify-consumer.ps1 `
   -ConsumerRoot $consumerRoot -ApplicationId ContosoAdmin
+Set-Location $consumerRoot
 ```
 
 The validator is read-only: it has no network, database, migration, host-start, or automatic-renaming behavior. It checks solution/project identity, scoped stale sample references, inherited migration artifacts, consumer OpenIddict identity, inspectable SDK/package baselines, and known secret/certificate artifacts. A static PASS is not runtime proof.
@@ -105,12 +106,15 @@ Restore client libraries first when Web/TestServer needs ignored ABP assets. Sto
 ## H4-01 temporary exercise record
 
 H4-01 exercised this procedure with synthetic `ContosoAdmin`, copied from
-consumer source commit `6a8605a63d18d35767f520d57d33193f6d15aa29`, using the
-separate Học tooling checkout at validator/tooling commit
-`cd7c8c06b5e8f35e5b9b4d02eef5380fe80a1adc`. Start/end were
+consumer source commit `6a8605a63d18d35767f520d57d33193f6d15aa29`, using a
+separate Học tooling checkout. Start/end were
 `2026-11-12T10:14:21+07:00` / `2026-11-12T10:20:14+07:00`, for 5 minutes 53
 seconds including rework. The temporary consumer had an independent local Git
 root commit (`f164466ec599432772ffd3acffa6eafc805d6f26`) and no remote.
+
+That historical exercise predates tooling commit
+`cd7c8c06b5e8f35e5b9b4d02eef5380fe80a1adc`; no original tooling SHA is inferred
+for it. The later reproducible procedure separately pins that tooling commit.
 
 Manual work performed: renamed solution/projects/namespaces/configuration to
 `ContosoAdmin`; removed DemoRecords runtime references, sample projects,
