@@ -34,6 +34,10 @@ jobs:
         shell: pwsh
         run: ./scripts/productization/test-verify-consumer.ps1
 
+      - name: Admin module starter self-tests
+        shell: pwsh
+        run: ./scripts/productization/test-new-admin-module.ps1
+
       # Two existing project files include these ignored paths with CopyToOutputDirectory=Always.
       # Use secret-free placeholders solely to satisfy clean-runner MSBuild item copies.
       - name: Prepare empty local config placeholders
