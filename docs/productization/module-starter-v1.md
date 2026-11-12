@@ -28,7 +28,7 @@ pwsh ./scripts/productization/new-admin-module.ps1 `
   -Apply
 ```
 
-The consumer root must be a real directory (not a reparse point), contain `ContosoAdmin.slnx` or `ContosoAdmin.sln` and `common.props`, and have no colliding output. IDs are PascalCase identifiers; routes use lower-case letters, digits, and hyphens. The generator validates its own pinned SDK/template baseline, does not access a network or database, rejects path traversal/output escapes/reparse-point redirects, and refuses to overwrite existing output. It completes validation before creating output and removes only directories it created if copying or transformation fails.
+The consumer root must be a real directory (not a reparse point), contain `ContosoAdmin.slnx` or `ContosoAdmin.sln` and `common.props`, and have no colliding output. IDs are PascalCase identifiers; routes use lower-case letters, digits, and hyphens. The generator validates its own pinned SDK/template baseline, does not access a network or database, rejects path traversal/output escapes/reparse-point redirects, and refuses to overwrite existing output. It copies only text source/template and retained license/provenance files, excluding build artifacts, caches, secret overlays, certificates, and binary files. It stages generation before publishing and removes only its own staging/published output if copying or transformation fails.
 
 For the example, output is:
 
@@ -42,7 +42,7 @@ modules/
   ContosoAdmin.Products.Web/
 ```
 
-Namespaces and assembly names use `ContosoAdmin.Products`; `Product` identifies the aggregate/DTOs/services/pages; `Products` identifies permissions and menu/localization group; `products` is the supplied API route identity. The generated module preserves the reference's host-only tenant guard, CRUD authorization (`Products.Read`, `.Create`, `.Update`, `.Delete`), conventional HTTP API module, Razor antiforgery validation, permission-protected navigation, and English/Vietnamese resources. It deliberately has no executable `Hoc.DemoRecords` dependency or visible DemoRecords label. ABP/template provenance is retained; consult the repository license and do not treat generated source as a grant to redistribute LeptonX Lite.
+Namespaces and assembly names use `ContosoAdmin.Products`; `Product` identifies the aggregate/DTOs/services/pages; the explicitly supplied module identity `Products` identifies permissions and menu/localization group; `products` is the supplied API route identity. The generated module preserves the reference's host-only tenant guard, CRUD authorization (`Products.Read`, `.Create`, `.Update`, `.Delete`), conventional HTTP API module, Razor antiforgery validation, permission-protected navigation, and English/Vietnamese resources. For the documented Product/Products example, the exact group/title labels are `Products` (English) and `Sản phẩm` (Vietnamese); they replace inherited demo labels. It deliberately has no executable `Hoc.DemoRecords` dependency or visible DemoRecords label. ABP/template provenance is retained; consult the repository license and do not treat generated source as a grant to redistribute LeptonX Lite.
 
 ## Compose in the consumer
 

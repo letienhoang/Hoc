@@ -5,6 +5,8 @@ param(
     [Parameter(Mandatory)] [string] $ModuleName,
     [Parameter(Mandatory)] [string] $EntityName,
     [Parameter(Mandatory)] [string] $RouteSegment,
+    # Test-only fault injection used by the adjacent self-test; normal callers omit it.
+    [ValidateRange(1, 10000)] [int] $TestFailAfterFileCopies = 0,
     [switch] $Apply
 )
 
@@ -28,6 +30,35 @@ function Assert-NotReparsePoint([string] $Path, [string] $Description) {
 function Get-ModuleProjectNames {
     return @('Domain', 'Application.Contracts', 'Application', 'EntityFrameworkCore', 'HttpApi', 'Web') |
         ForEach-Object { "$ApplicationId.$ModuleName.$_" }
+}
+
+function Get-TemplateFiles([string] $Source) {
+    # The starter is source-only.  Do not let a local build, secret overlay, or
+    # arbitrary binary placed below samples become generated consumer content.
+    $allowedExtensions = @('.cs', '.csproj', '.cshtml', '.json', '.md', '.txt')
+    $retainedNames = @('LICENSE', 'LICENSE.txt', 'NOTICE', 'NOTICE.txt')
+    return @(Get-ChildItem -LiteralPath $Source -Recurse -File -Force | Where-Object {
+        $relative = $_.FullName.Substring($Source.Length).TrimStart([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+        $segments = $relative -split '[\\/]'
+        $segments -notcontains 'bin' -and
+        $segments -notcontains 'obj' -and
+        $segments -notcontains '.tools' -and
+        $segments -notcontains '.git' -and
+        $_.Name -notmatch '(?i)^appsettings(\..+)?\.secrets\.json$' -and
+        ($allowedExtensions -contains $_.Extension.ToLowerInvariant() -or $retainedNames -contains $_.Name)
+    })
+}
+
+function Set-VietnameseLocalizationLabels([string] $Path, [string] $EntityLabel, [string] $GroupLabel) {
+    $labels = if ($EntityLabel -eq 'Product' -and $GroupLabel -eq 'Products') {
+        @{ 'Bản ghi minh họa' = 'Sản phẩm'; 'Xem bản ghi minh họa' = 'Xem sản phẩm'; 'Tạo bản ghi minh họa' = 'Tạo sản phẩm'; 'Cập nhật bản ghi minh họa' = 'Cập nhật sản phẩm'; 'Xóa bản ghi minh họa' = 'Xóa sản phẩm'; 'Chi tiết bản ghi minh họa' = 'Chi tiết sản phẩm'; 'Chỉnh sửa bản ghi minh họa' = 'Chỉnh sửa sản phẩm'; 'Không có bản ghi minh họa nào.' = 'Không có sản phẩm nào.'; 'Bạn có chắc chắn muốn xóa bản ghi minh họa này không?' = 'Bạn có chắc chắn muốn xóa sản phẩm này không?' }
+    }
+    else {
+        @{ 'Bản ghi minh họa' = $GroupLabel; 'Xem bản ghi minh họa' = "Xem $EntityLabel"; 'Tạo bản ghi minh họa' = "Tạo $EntityLabel"; 'Cập nhật bản ghi minh họa' = "Cập nhật $EntityLabel"; 'Xóa bản ghi minh họa' = "Xóa $EntityLabel"; 'Chi tiết bản ghi minh họa' = "Chi tiết $EntityLabel"; 'Chỉnh sửa bản ghi minh họa' = "Chỉnh sửa $EntityLabel"; 'Không có bản ghi minh họa nào.' = "Không có $GroupLabel nào."; 'Bạn có chắc chắn muốn xóa bản ghi minh họa này không?' = "Bạn có chắc chắn muốn xóa $EntityLabel này không?" }
+    }
+    $content = [IO.File]::ReadAllText($Path)
+    foreach ($sourceLabel in $labels.Keys) { $content = $content.Replace($sourceLabel, $labels[$sourceLabel]) }
+    [IO.File]::WriteAllText($Path, $content, [Text.UTF8Encoding]::new($false))
 }
 
 if ($ApplicationId -notmatch '^[A-Z][A-Za-z0-9]*$') { Fail 'ApplicationId must be a PascalCase identifier.' }
@@ -84,20 +115,34 @@ if (-not $Apply) {
     exit 0
 }
 
-$created = @()
+$moduleNamespace = "$ApplicationId.$ModuleName"
+$pluralEntity = $ModuleName
+$stagingRoot = Join-Path $modulesRoot ('.h4-02-staging-' + [guid]::NewGuid().ToString('N'))
+$modulesRootCreated = $false
+$published = @()
 try {
-    if (-not (Test-Path -LiteralPath $modulesRoot)) { New-Item -ItemType Directory -Path $modulesRoot | Out-Null }
+    if (-not (Test-Path -LiteralPath $modulesRoot)) {
+        New-Item -ItemType Directory -Path $modulesRoot | Out-Null
+        $modulesRootCreated = $true
+    }
     Assert-NotReparsePoint $modulesRoot 'Consumer modules directory'
+    New-Item -ItemType Directory -Path $stagingRoot | Out-Null
+    $copiedFileCount = 0
     for ($index = 0; $index -lt $sourceProjectNames.Count; $index++) {
         $source = Join-Path $templateRoot $sourceProjectNames[$index]
-        $destination = $outputs[$index]
-        Copy-Item -LiteralPath $source -Destination $destination -Recurse -Force
-        $created += $destination
+        $destination = Join-Path $stagingRoot (Split-Path -Leaf $outputs[$index])
+        foreach ($file in Get-TemplateFiles $source) {
+            $relative = $file.FullName.Substring($source.Length).TrimStart([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+            $destinationFile = Join-Path $destination $relative
+            $destinationDirectory = Split-Path -Parent $destinationFile
+            if (-not (Test-Path -LiteralPath $destinationDirectory)) { New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null }
+            Copy-Item -LiteralPath $file.FullName -Destination $destinationFile -Force
+            $copiedFileCount++
+            if ($TestFailAfterFileCopies -gt 0 -and $copiedFileCount -ge $TestFailAfterFileCopies) { Fail 'Test fault injected after copying a template file.' }
+        }
     }
 
-    $pluralEntity = "$EntityName`$s"
-    $moduleNamespace = "$ApplicationId.$ModuleName"
-    $createdFiles = @(Get-ChildItem -LiteralPath $created -Recurse -File)
+    $createdFiles = @(Get-ChildItem -LiteralPath $stagingRoot -Recurse -File)
     foreach ($file in $createdFiles) {
         $content = [IO.File]::ReadAllText($file.FullName)
         $content = $content.Replace('Hoc.DemoRecords', $moduleNamespace)
@@ -114,15 +159,28 @@ try {
         $newName = $file.Name.Replace('Hoc.DemoRecords', $moduleNamespace).Replace('DemoRecords', $ModuleName).Replace('DemoRecord', $EntityName)
         if ($newName -ne $file.Name) { Rename-Item -LiteralPath $file.FullName -NewName $newName }
     }
-    Get-ChildItem -LiteralPath $modulesRoot -Recurse -Directory | Sort-Object FullName -Descending | ForEach-Object {
+    Get-ChildItem -LiteralPath $stagingRoot -Recurse -File -Filter 'vi.json' | ForEach-Object {
+        Set-VietnameseLocalizationLabels -Path $_.FullName -EntityLabel $EntityName -GroupLabel $pluralEntity
+    }
+    Get-ChildItem -LiteralPath $stagingRoot -Recurse -Directory | Sort-Object FullName -Descending | ForEach-Object {
         $newName = $_.Name.Replace('Hoc.DemoRecords', $moduleNamespace).Replace('DemoRecords', $ModuleName).Replace('DemoRecord', $EntityName)
         if ($newName -ne $_.Name) { Rename-Item -LiteralPath $_.FullName -NewName $newName }
     }
+    for ($index = 0; $index -lt $outputs.Count; $index++) {
+        $stagedOutput = Join-Path $stagingRoot (Split-Path -Leaf $outputs[$index])
+        if (-not (Test-Path -LiteralPath $stagedOutput -PathType Container)) { Fail "Staged project is missing: $stagedOutput" }
+        if (Test-Path -LiteralPath $outputs[$index]) { Fail "Output appeared during generation; refusing to overwrite: $($outputs[$index])" }
+        Move-Item -LiteralPath $stagedOutput -Destination $outputs[$index]
+        $published += $outputs[$index]
+    }
+    Remove-Item -LiteralPath $stagingRoot -Recurse -Force
     Write-Host 'Module generation completed.'
 }
 catch {
-    foreach ($path in $created) {
+    foreach ($path in $published) {
         if ((Test-Path -LiteralPath $path) -and (Test-ChildPath $modulesRoot $path)) { Remove-Item -LiteralPath $path -Recurse -Force }
     }
+    if (Test-Path -LiteralPath $stagingRoot) { Remove-Item -LiteralPath $stagingRoot -Recurse -Force }
+    if ($modulesRootCreated -and (Test-Path -LiteralPath $modulesRoot) -and -not (Get-ChildItem -LiteralPath $modulesRoot -Force | Select-Object -First 1)) { Remove-Item -LiteralPath $modulesRoot -Force }
     throw
 }
