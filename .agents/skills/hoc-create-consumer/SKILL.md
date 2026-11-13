@@ -7,6 +7,13 @@ description: Bootstrap a new independent Học ABP MVC/Razor Admin consumer usin
 
 Use this skill from the `letienhoang/Hoc` tooling checkout. It orchestrates the existing H4 scripts; it does **not** replace their validation or create a database, remote repository, or running website.
 
+For routing, shared authorization boundaries, and evidence conventions, read
+[`docs/productization/agent-skills-v1.md`](../../../docs/productization/agent-skills-v1.md).
+After a successful consumer bootstrap and its focused verification, module
+addition is a separate handoff to `hoc-add-admin-module`; use
+`hoc-validate-consumer` when the starting point is an existing consumer that
+needs diagnosis rather than creation.
+
 ## Authoritative references
 
 Read these files at the current tooling revision before executing commands:

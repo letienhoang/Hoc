@@ -10,6 +10,8 @@ To add a fixed-shape six-project MVC/Razor CRUD module to an already-derived con
 
 When using Codex from this Học tooling checkout, invoke [`$hoc-create-consumer`](.agents/skills/hoc-create-consumer/SKILL.md) to guide a new consumer through the existing H4-03 generator, its dry-run/Apply distinction, and structural verification. The skill does not create a database or deploy a consumer. It is repository-scoped and is **not** automatically included in consumers generated from the pinned H1 source baseline.
 
+The repository-scoped skill catalog is documented in [Agent Skills v1](docs/productization/agent-skills-v1.md). Use [`$hoc-add-admin-module`](.agents/skills/hoc-add-admin-module/SKILL.md) for the supported fixed-shape module workflow in an existing consumer, and [`$hoc-validate-consumer`](.agents/skills/hoc-validate-consumer/SKILL.md) for read-only diagnosis. Skill selection does not authorize `-Apply`, migrations, persistent database access, grants, deployment, or production operations.
+
 ## Prerequisites
 
 - The exact .NET SDK in [global.json](global.json): `10.0.403`.

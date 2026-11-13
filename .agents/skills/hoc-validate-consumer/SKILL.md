@@ -11,6 +11,11 @@ diagnose an existing independent consumer. It runs the existing
 rename, repair, generate, compose, migrate, build, start, deploy, or modify the
 consumer.
 
+For routing, shared authorization boundaries, and evidence conventions, read
+[`docs/productization/agent-skills-v1.md`](../../../docs/productization/agent-skills-v1.md).
+Use `hoc-create-consumer` for a new consumer and `hoc-add-admin-module` only
+after a consumer exists and the module workflow is explicitly in scope.
+
 ## Scope and required inputs
 
 Confirm these values before validation:
