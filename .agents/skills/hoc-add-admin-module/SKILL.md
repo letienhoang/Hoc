@@ -11,6 +11,12 @@ and composed into that consumer. It orchestrates the existing H4-02 and H4-04
 scripts; it is not a new generator, installer, runtime plugin system, or
 migration tool.
 
+For routing, shared authorization boundaries, and evidence conventions, read
+[`docs/productization/agent-skills-v1.md`](../../../docs/productization/agent-skills-v1.md).
+Use `hoc-create-consumer` first when no independent consumer exists. Use
+`hoc-validate-consumer` for read-only diagnosis; this skill does not repair
+validator findings.
+
 ## Read before acting
 
 Read these files at the current tooling revision:
