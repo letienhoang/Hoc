@@ -6,6 +6,10 @@ This repository is source-first. It does not publish a Học runtime package or 
 
 To add a fixed-shape six-project MVC/Razor CRUD module to an already-derived consumer, use the [admin module starter v1](docs/productization/module-starter-v1.md), then [automated module integration v1](docs/productization/automated-module-integration-v1.md). The supported workflow is bootstrap, generate, dry-run/apply integration, then consumer restore/build/test. Migration source and APPLY remain consumer-owned, separate operations.
 
+## AI-assisted consumer bootstrap (Codex)
+
+When using Codex from this Học tooling checkout, invoke [`$hoc-create-consumer`](.agents/skills/hoc-create-consumer/SKILL.md) to guide a new consumer through the existing H4-03 generator, its dry-run/Apply distinction, and structural verification. The skill does not create a database or deploy a consumer. It is repository-scoped and is **not** automatically included in consumers generated from the pinned H1 source baseline.
+
 ## Prerequisites
 
 - The exact .NET SDK in [global.json](global.json): `10.0.403`.
