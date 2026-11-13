@@ -23,6 +23,12 @@ function Test-ChildPath([string] $Parent, [string] $Child) {
 }
 function Assert-File([string] $Path, [string] $Description) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { Fail "$Description is missing: $Path" }
+    if (-not (Test-ChildPath $root $Path)) { Fail "$Description escapes ConsumerRoot: $Path" }
+    $current = Split-Path -Parent $Path
+    while ($current -and -not [string]::Equals($current.TrimEnd([char]92,[char]47), $root.TrimEnd([char]92,[char]47), [StringComparison]::OrdinalIgnoreCase)) {
+        Assert-NotReparsePoint $current "$Description ancestor"
+        $current = Split-Path -Parent $current
+    }
     Assert-NotReparsePoint $Path $Description
 }
 function Add-UniqueXmlReference([xml] $Xml, [string] $Include) {
@@ -32,7 +38,7 @@ function Add-UniqueXmlReference([xml] $Xml, [string] $Include) {
     $node = $Xml.CreateElement('ProjectReference'); $node.SetAttribute('Include', $Include); [void]$group.AppendChild($node); return $true
 }
 function Add-UniqueDependsOn([string] $Content, [string] $Type) {
-    if ($Content.Contains("typeof($Type)")) { return $Content }
+    if ($Content -match "(?m)^[ \t]*typeof\($([regex]::Escape($Type))\)") { return $Content }
     $match = [regex]::Match($Content, '(?s)\[DependsOn\((.*)\)\]')
     if (-not $match.Success) { Fail 'Expected one ABP DependsOn declaration was not found.' }
     $body = $match.Groups[1].Value
@@ -50,14 +56,16 @@ function Add-Using([string] $Content, [string] $Namespace) {
     return $Content.Insert($last.Index + $last.Length, "`nusing $Namespace;")
 }
 function Add-DbSet([string] $Content, [string] $Entity, [string] $Plural) {
-    if ($Content.Contains("DbSet<$Entity> $Plural")) { return $Content }
+    $properties = @([regex]::Matches($Content, "(?m)^\s*public\s+DbSet<(?<type>[A-Za-z_][A-Za-z0-9_.]*)>\s+$([regex]::Escape($Plural))\s*\{[^\n]*$"))
+    if ($properties.Count -gt 1) { Fail "Multiple DbSet properties named '$Plural' are unsupported." }
+    if ($properties.Count -eq 1) { if ($properties[0].Groups['type'].Value -eq $Entity) { return $Content }; Fail "DbSet property '$Plural' conflicts with generated entity '$Entity'." }
     $marker = '#endregion'
     $index = $Content.IndexOf($marker, [StringComparison]::Ordinal)
     if ($index -lt 0) { Fail 'Expected DbContext module-entity region was not found.' }
     return $Content.Insert($index, "    public DbSet<$Entity> $Plural { get; set; }`n")
 }
 function Add-ModelCall([string] $Content, [string] $Method) {
-    if ($Content.Contains("builder.$Method();")) { return $Content }
+    if ($Content -match "(?m)^[ \t]*builder\.$([regex]::Escape($Method))\(\);") { return $Content }
     $needle = 'builder.ConfigureTenantManagement();'
     $index = $Content.IndexOf($needle, [StringComparison]::Ordinal)
     if ($index -lt 0) { Fail 'Expected supported DbContext model configuration pattern was not found.' }
@@ -119,7 +127,7 @@ if ($changed.Count -eq 0) { Write-Host 'Consumer is fully integrated; no changes
 if (-not $Apply) { Write-Host 'Dry-run complete; no consumer files were changed.'; exit 0 }
 $written = @()
 try {
-    foreach ($path in $changed) { [IO.File]::WriteAllText($path, $updates[$path], [Text.UTF8Encoding]::new($false)); $written += $path; if ($TestFailAfterWrites -gt 0 -and $written.Count -ge $TestFailAfterWrites) { Fail 'Test fault injected during multi-file application.' } }
+    foreach ($path in $changed) { $written += $path; [IO.File]::WriteAllText($path, $updates[$path], [Text.UTF8Encoding]::new($false)); if ($TestFailAfterWrites -gt 0 -and $written.Count -ge $TestFailAfterWrites) { Fail 'Test fault injected during multi-file application.' } }
     Write-Host 'Consumer composition completed.'
 } catch {
     foreach ($path in $written) { [IO.File]::WriteAllBytes($path, $targets[$path]) }
