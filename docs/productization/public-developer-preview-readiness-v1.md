@@ -66,26 +66,105 @@ or production work.
 2. Run the appropriate default dry-run. It is read-only and must complete
    successfully before any mutation. For bootstrap, follow the exact command
    in [automated bootstrap](automated-consumer-bootstrap-v1.md). For module
-   work, run generation dry-run and then integration dry-run as separate
-   stages.
-3. Obtain explicit authorization for the exact filesystem mutation. Only then
-   use `-Apply`; bootstrap creation, module generation, and host integration
-   are separately bounded writes. Preserve failures and do not force, delete,
-   overwrite, or hand-edit generated output to bypass safeguards.
+   work, use the following order from the tooling checkout, with the same
+   `$consumerRoot`, `$applicationId`, `$moduleName`, `$entityName`, and
+   `$routeSegment` values for each command:
+
+   ```powershell
+   $toolingRoot = 'C:\work\Hoc-tooling'
+   $consumerRoot = 'C:\work\InventoryAdmin'
+   $applicationId = 'InventoryAdmin'
+   $moduleName = 'Products'
+   $entityName = 'Product'
+   $routeSegment = 'products'
+   Set-Location $toolingRoot
+
+   # H4-02 generation dry-run; require exit code 0.
+   pwsh ./scripts/productization/new-admin-module.ps1 `
+     -ConsumerRoot $consumerRoot `
+     -ApplicationId $applicationId `
+     -ModuleName $moduleName `
+     -EntityName $entityName `
+     -RouteSegment $routeSegment
+   ```
+
+   Then obtain explicit authorization for the exact consumer and both named
+   filesystem operations. One existing explicit Owner GO may cover both
+   writes when it names this target and authorizes H4-02 module generation and
+   H4-04 host integration. Run the authorized H4-02 Apply and verify these six
+   generated project directories before attempting integration:
+
+   ```powershell
+   # Authorized H4-02 generation Apply; require exit code 0.
+   pwsh ./scripts/productization/new-admin-module.ps1 `
+     -ConsumerRoot $consumerRoot `
+     -ApplicationId $applicationId `
+     -ModuleName $moduleName `
+     -EntityName $entityName `
+     -RouteSegment $routeSegment `
+     -Apply
+
+   $moduleRoot = Join-Path $consumerRoot 'modules'
+   @(
+     "$applicationId.$moduleName.Domain",
+     "$applicationId.$moduleName.Application.Contracts",
+     "$applicationId.$moduleName.Application",
+     "$applicationId.$moduleName.EntityFrameworkCore",
+     "$applicationId.$moduleName.HttpApi",
+     "$applicationId.$moduleName.Web"
+   ) | ForEach-Object {
+     if (-not (Test-Path -LiteralPath (Join-Path $moduleRoot $_) -PathType Container)) {
+       throw "Missing generated project directory: $_"
+     }
+   }
+   ```
+
+   Only after all six generated projects and their expected module entry
+   points exist, run the H4-04 integration dry-run, obtain/use the matching
+   authorization, and Apply integration. Require exit code `0` for each
+   command; an already-composed consumer may report the documented successful
+   no-op instead.
+
+   ```powershell
+   # H4-04 integration dry-run; require exit code 0.
+   pwsh ./scripts/productization/integrate-admin-module.ps1 `
+     -ConsumerRoot $consumerRoot `
+     -ApplicationId $applicationId `
+     -ModuleName $moduleName `
+     -EntityName $entityName
+
+   # Authorized H4-04 integration Apply; require exit code 0.
+   pwsh ./scripts/productization/integrate-admin-module.ps1 `
+     -ConsumerRoot $consumerRoot `
+     -ApplicationId $applicationId `
+     -ModuleName $moduleName `
+     -EntityName $entityName `
+     -Apply
+   ```
+
+   H4-04 must update only these six composition targets: the consumer
+   `<ApplicationId>.slnx`, Web `.csproj` and Web module, EF Core `.csproj` and
+   EF Core module, and consumer `DbContext`. Preserve failures and do not
+   force, delete, overwrite, or hand-edit generated output to bypass
+   safeguards.
+   Recheck those six files for the module project references, host/module
+   dependencies, the entity `DbSet`, and `Configure<ModuleName>()` before
+   continuing to validation and build.
 4. Run the read-only structural validator from the tooling checkout:
 
    ```powershell
    pwsh ./scripts/productization/verify-consumer.ps1 `
-     -ConsumerRoot <consumer-root> `
-     -ApplicationId <application-id>
+     -ConsumerRoot $consumerRoot `
+     -ApplicationId $applicationId
    ```
 
 5. In the consumer checkout, use its pinned SDK for serialized restore and
    Release build:
 
    ```powershell
-   dotnet restore <ApplicationId>.slnx -m:1 /nr:false
-   dotnet build <ApplicationId>.slnx -c Release --no-restore -m:1 /nr:false
+   $solutionPath = Join-Path $consumerRoot "$applicationId.slnx"
+   dotnet restore $solutionPath -m:1 /nr:false
+   dotnet build $solutionPath -c Release --no-restore -m:1 /nr:false
    ```
 
    For a build-only exercise, two inherited projects may need local empty
@@ -151,17 +230,37 @@ record containing:
    clean status, and SDK version.
 3. Exact new output path, application ID, and HTTPS root URL; proof it is
    outside the source checkout and was nonexistent before Apply.
-4. Complete bootstrap dry-run command/output and exit code, followed by the
-   separately authorized Apply command/output and exit code.
-5. Validator command, all `PASS:`/`FAIL:` lines, final `RESULT:`, and exit
-   code. Preserve only paths and diagnostics; never capture secret contents.
-6. Consumer revision/status after creation, pinned SDK restore and Release
-   build commands with exit codes, plus each focused test command and result.
-7. Any required client-library restore command and outcome, clearly separated
-   from source/bootstrap evidence.
-8. A final classification that structural, compilation, TestServer/SQLite,
-   PostgreSQL, browser, deployed-runtime, and production evidence are distinct.
-   Mark categories not exercised `NOT VERIFIED`.
+4. Complete the bootstrap dry-run command/output and exit code, followed by
+   the separately authorized Apply command/output and exit code. Record the
+   resulting consumer revision/status and the exact new consumer path.
+5. For the module stage, record each exact command, complete sanitized
+   output, and exit code for: H4-02 generation dry-run; authorized H4-02
+   Apply; verification of these six expected project directories and module
+   entry points; H4-04 integration dry-run; and authorized H4-04 Apply. The
+   commands are the variable-based H4-02 and H4-04 command forms in the safe
+   developer sequence above; retain the resolved values rather than replacing
+   them with angle-bracket text. The H4-02 expected paths are:
+   `modules/<ApplicationId>.<ModuleName>.Domain/`,
+   `Application.Contracts/`, `Application/`, `EntityFrameworkCore/`,
+   `HttpApi/`, and `Web/` under the same module prefix. The H4-04 expected
+   composition targets are the six files named in the safe sequence above:
+   `<ApplicationId>.slnx`, Web `.csproj` and module, EF Core `.csproj` and
+   module, and consumer `DbContext`. A successful dry-run or Apply has exit
+   code `0`; preserve a successful no-op message when integration is already
+   complete.
+6. Record the validator command, all `PASS:`/`FAIL:` lines, final `RESULT:`,
+   and exit code; then record the pinned-SDK restore and Release-build
+   commands and exit codes after integration. Record each focused test command,
+   result, and exit code. The final build/test evidence must be from the
+   composed consumer, not only from the pre-module bootstrap.
+7. Record any required client-library restore command and outcome, clearly
+   separated from source, bootstrap, module, integration, validation, and
+   build evidence.
+8. State evidence limitations for every result: structural validation is
+   read-only source evidence; restore/build prove compilation only; focused
+   tests are limited to their stated harness (for example TestServer/SQLite).
+   PostgreSQL, browser, deployed-runtime, and production evidence are
+   separate categories. Mark categories not exercised `NOT VERIFIED`.
 9. Confirmation that no shared/persistent database was contacted, no
    migration/DbMigrator/seeding/grants occurred, and no deployment or release
    action occurred.
